@@ -14,7 +14,7 @@ type span struct {
 	parent *trace.Span
 }
 
-// NewTracer returns a tracer that will fetch spans using google tracing's SpanContext function
+// NewTracer returns a tracer that will fetch spans using opencensus's FromContext function
 func NewTracer() instrumentedsql.Tracer { return tracer{} }
 
 // GetSpan fetches a span from the context and wraps it
