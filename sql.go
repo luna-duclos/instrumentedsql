@@ -13,6 +13,7 @@ type opts struct {
 	Logger
 	Tracer
 	OmitArgs bool
+	TraceWithoutParent bool
 }
 
 type wrappedDriver struct {

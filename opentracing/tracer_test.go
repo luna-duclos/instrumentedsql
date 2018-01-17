@@ -13,7 +13,7 @@ func TestSpanWithParent(t *testing.T) {
 		opentracing.GlobalTracer().StartSpan("some_span"),
 	)
 
-	tr := NewTracer()
+	tr := NewTracer(true)
 	span := tr.GetSpan(ctx)
 	span.SetLabel("key", "value")
 
@@ -26,7 +26,7 @@ func TestSpanWithParent(t *testing.T) {
 
 func TestSpanWithoutParent(t *testing.T) {
 	ctx := context.Background() // Background has no span
-	tr := NewTracer()
+	tr := NewTracer(true)
 	span := tr.GetSpan(ctx)
 	span.SetLabel("key", "value")
 
