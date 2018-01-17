@@ -1,9 +1,9 @@
-package google
+package opencensus
 
 import (
 	"context"
 
-	"cloud.google.com/go/trace"
+	"go.opencensus.io/trace"
 
 	"github.com/luna-duclos/instrumentedsql"
 )
@@ -27,13 +27,13 @@ func (tracer) GetSpan(ctx context.Context) instrumentedsql.Span {
 }
 
 func (s span) NewChild(name string) instrumentedsql.Span {
-	return span{parent: s.parent.NewChild(name)}
+	return span{parent: s.parent.StartSpan(name)}
 }
 
 func (s span) SetLabel(k, v string) {
-	s.parent.SetLabel(k, v)
+	s.parent.SetAttributes(trace.StringAttribute{Key: k, Value: v})
 }
 
 func (s span) Finish() {
-	s.parent.Finish()
+	s.parent.End()
 }
