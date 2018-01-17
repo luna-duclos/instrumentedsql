@@ -27,6 +27,9 @@ func (tracer) GetSpan(ctx context.Context) instrumentedsql.Span {
 }
 
 func (s span) NewChild(name string) instrumentedsql.Span {
+	if s.parent == nil {
+		return span{parent: trace.NewSpan(name, trace.StartSpanOptions{})}
+	}
 	return span{parent: s.parent.StartSpan(name)}
 }
 
