@@ -9,43 +9,43 @@ import (
 	"github.com/pkg/errors"
 )
 
-type wrappedDriver struct {
+type opts struct {
 	Logger
 	Tracer
+	OmitArgs bool
+}
+
+type wrappedDriver struct {
+	opts
 	parent driver.Driver
 }
 
 type wrappedConn struct {
-	Logger
-	Tracer
+	opts
 	parent driver.Conn
 }
 
 type wrappedTx struct {
-	Logger
-	Tracer
+	opts
 	ctx    context.Context
 	parent driver.Tx
 }
 
 type wrappedStmt struct {
-	Logger
-	Tracer
+	opts
 	ctx    context.Context
 	query  string
 	parent driver.Stmt
 }
 
 type wrappedResult struct {
-	Logger
-	Tracer
+	opts
 	ctx    context.Context
 	parent driver.Result
 }
 
 type wrappedRows struct {
-	Logger
-	Tracer
+	opts
 	ctx    context.Context
 	parent driver.Rows
 }
@@ -60,7 +60,7 @@ func WrapDriver(driver driver.Driver, opts ...Opt) driver.Driver {
 	d := wrappedDriver{parent: driver}
 
 	for _, opt := range opts {
-		opt(&d)
+		opt(&d.opts)
 	}
 
 	if d.Logger == nil {
@@ -73,13 +73,26 @@ func WrapDriver(driver driver.Driver, opts ...Opt) driver.Driver {
 	return d
 }
 
+func logQuery(ctx context.Context, opts opts, op, query string, err error, args interface{}) {
+	keyvals := []interface{}{
+		"query", query,
+		"err", err,
+	}
+
+	if !opts.OmitArgs && args != nil {
+		keyvals = append(keyvals, "args", pretty.Sprint(args))
+	}
+
+	opts.Log(ctx, op, keyvals...)
+}
+
 func (d wrappedDriver) Open(name string) (driver.Conn, error) {
 	conn, err := d.parent.Open(name)
 	if err != nil {
 		return nil, err
 	}
 
-	return wrappedConn{Tracer: d.Tracer, Logger: d.Logger, parent: conn}, nil
+	return wrappedConn{opts: d.opts, parent: conn}, nil
 }
 
 func (c wrappedConn) Prepare(query string) (driver.Stmt, error) {
@@ -88,7 +101,7 @@ func (c wrappedConn) Prepare(query string) (driver.Stmt, error) {
 		return nil, err
 	}
 
-	return wrappedStmt{Tracer: c.Tracer, Logger: c.Logger, query: query, parent: parent}, nil
+	return wrappedStmt{opts: c.opts, query: query, parent: parent}, nil
 }
 
 func (c wrappedConn) Close() error {
@@ -101,7 +114,7 @@ func (c wrappedConn) Begin() (driver.Tx, error) {
 		return nil, err
 	}
 
-	return wrappedTx{Tracer: c.Tracer, Logger: c.Logger, parent: tx}, nil
+	return wrappedTx{opts: c.opts, parent: tx}, nil
 }
 
 func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx driver.Tx, err error) {
@@ -119,7 +132,7 @@ func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx dri
 			return nil, err
 		}
 
-		return wrappedTx{Tracer: c.Tracer, Logger: c.Logger, ctx: ctx, parent: tx}, nil
+		return wrappedTx{opts: c.opts, ctx: ctx, parent: tx}, nil
 	}
 
 	tx, err = c.parent.Begin()
@@ -127,7 +140,7 @@ func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx dri
 		return nil, err
 	}
 
-	return wrappedTx{Tracer: c.Tracer, Logger: c.Logger, ctx: ctx, parent: tx}, nil
+	return wrappedTx{opts: c.opts, ctx: ctx, parent: tx}, nil
 }
 
 func (c wrappedConn) PrepareContext(ctx context.Context, query string) (stmt driver.Stmt, err error) {
@@ -136,7 +149,7 @@ func (c wrappedConn) PrepareContext(ctx context.Context, query string) (stmt dri
 	defer func() {
 		span.SetLabel("err", fmt.Sprint(err))
 		span.Finish()
-		c.Log(ctx, "sql-prepare", "err", err)
+		logQuery(ctx, c.opts, "sql-prepare", query, err, nil)
 	}()
 
 	if connPrepareCtx, ok := c.parent.(driver.ConnPrepareContext); ok {
@@ -145,7 +158,7 @@ func (c wrappedConn) PrepareContext(ctx context.Context, query string) (stmt dri
 			return nil, err
 		}
 
-		return wrappedStmt{Tracer: c.Tracer, Logger: c.Logger, ctx: ctx, parent: stmt}, nil
+		return wrappedStmt{opts: c.opts, ctx: ctx, parent: stmt}, nil
 	}
 
 	return c.Prepare(query)
@@ -158,7 +171,7 @@ func (c wrappedConn) Exec(query string, args []driver.Value) (driver.Result, err
 			return nil, err
 		}
 
-		return wrappedResult{Tracer: c.Tracer, Logger: c.Logger, parent: res}, nil
+		return wrappedResult{opts: c.opts, parent: res}, nil
 	}
 
 	return nil, driver.ErrSkip
@@ -168,11 +181,14 @@ func (c wrappedConn) ExecContext(ctx context.Context, query string, args []drive
 	span := c.GetSpan(ctx).NewChild("sql-conn-exec")
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", query)
-	span.SetLabel("args", pretty.Sprint(args))
+	if !c.OmitArgs {
+		span.SetLabel("args", pretty.Sprint(args))
+	}
 	defer func() {
 		span.SetLabel("err", fmt.Sprint(err))
 		span.Finish()
-		c.Log(ctx, "sql-conn-exec", "query", query, "args", pretty.Sprint(args), "err", err)
+
+		logQuery(ctx, c.opts, "sql-conn-exec", query, err, args)
 	}()
 
 	if execContext, ok := c.parent.(driver.ExecerContext); ok {
@@ -181,7 +197,7 @@ func (c wrappedConn) ExecContext(ctx context.Context, query string, args []drive
 			return nil, err
 		}
 
-		return wrappedResult{Tracer: c.Tracer, Logger: c.Logger, ctx: ctx, parent: res}, nil
+		return wrappedResult{opts: c.opts, ctx: ctx, parent: res}, nil
 	}
 
 	// Fallback implementation
@@ -224,7 +240,7 @@ func (c wrappedConn) Query(query string, args []driver.Value) (driver.Rows, erro
 			return nil, err
 		}
 
-		return wrappedRows{Tracer: c.Tracer, Logger: c.Logger, parent: rows}, nil
+		return wrappedRows{opts: c.opts, parent: rows}, nil
 	}
 
 	return nil, driver.ErrSkip
@@ -234,11 +250,13 @@ func (c wrappedConn) QueryContext(ctx context.Context, query string, args []driv
 	span := c.GetSpan(ctx).NewChild("sql-conn-query")
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", query)
-	span.SetLabel("args", pretty.Sprint(args))
+	if !c.OmitArgs {
+		span.SetLabel("args", pretty.Sprint(args))
+	}
 	defer func() {
 		span.SetLabel("err", fmt.Sprint(err))
 		span.Finish()
-		c.Log(ctx, "sql-conn-query", "query", query, "args", pretty.Sprint(args), "err", err)
+		logQuery(ctx, c.opts, "sql-conn-query", query, err, args)
 	}()
 
 	if queryerContext, ok := c.parent.(driver.QueryerContext); ok {
@@ -247,7 +265,7 @@ func (c wrappedConn) QueryContext(ctx context.Context, query string, args []driv
 			return nil, err
 		}
 
-		return wrappedRows{Tracer: c.Tracer, Logger: c.Logger, ctx: ctx, parent: rows}, nil
+		return wrappedRows{opts: c.opts, ctx: ctx, parent: rows}, nil
 	}
 
 	dargs, err := namedValueToValue(args)
@@ -312,7 +330,7 @@ func (s wrappedStmt) Exec(args []driver.Value) (res driver.Result, err error) {
 	defer func() {
 		span.SetLabel("err", fmt.Sprint(err))
 		span.Finish()
-		s.Log(s.ctx, "sql-stmt-exec", "query", s.query, "args", pretty.Sprint(args), "err", err)
+		logQuery(s.ctx, s.opts, "sql-stmt-exec", s.query, err, args)
 	}()
 
 	res, err = s.parent.Exec(args)
@@ -320,7 +338,7 @@ func (s wrappedStmt) Exec(args []driver.Value) (res driver.Result, err error) {
 		return nil, err
 	}
 
-	return wrappedResult{Tracer: s.Tracer, Logger: s.Logger, ctx: s.ctx, parent: res}, nil
+	return wrappedResult{opts: s.opts, ctx: s.ctx, parent: res}, nil
 }
 
 func (s wrappedStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
@@ -331,7 +349,7 @@ func (s wrappedStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 	defer func() {
 		span.SetLabel("err", fmt.Sprint(err))
 		span.Finish()
-		s.Log(s.ctx, "sql-stmt-query", "query", s.query, "args", pretty.Sprint(args), "err", err)
+		logQuery(s.ctx, s.opts, "sql-stmt-query", s.query, err, args)
 	}()
 
 	rows, err = s.parent.Query(args)
@@ -339,7 +357,7 @@ func (s wrappedStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 		return nil, err
 	}
 
-	return wrappedRows{Tracer: s.Tracer, Logger: s.Logger, ctx: s.ctx, parent: rows}, nil
+	return wrappedRows{opts: s.opts, ctx: s.ctx, parent: rows}, nil
 }
 
 func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (res driver.Result, err error) {
@@ -350,7 +368,7 @@ func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) 
 	defer func() {
 		span.SetLabel("err", fmt.Sprint(err))
 		span.Finish()
-		s.Log(ctx, "sql-stmt-exec", "query", s.query, "args", pretty.Sprint(args), "err", err)
+		logQuery(ctx, s.opts, "sql-stmt-exec", s.query, err, args)
 	}()
 
 	if stmtExecContext, ok := s.parent.(driver.StmtExecContext); ok {
@@ -359,7 +377,7 @@ func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) 
 			return nil, err
 		}
 
-		return wrappedResult{Tracer: s.Tracer, Logger: s.Logger, ctx: ctx, parent: res}, nil
+		return wrappedResult{opts: s.opts, ctx: ctx, parent: res}, nil
 	}
 
 	// Fallback implementation
@@ -385,7 +403,7 @@ func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue)
 	defer func() {
 		span.SetLabel("err", fmt.Sprint(err))
 		span.Finish()
-		s.Log(ctx, "sql-stmt-query", "query", s.query, "args", pretty.Sprint(args), "err", err)
+		logQuery(ctx, s.opts, "sql-stmt-query", s.query, err, args)
 	}()
 
 	if stmtQueryContext, ok := s.parent.(driver.StmtQueryContext); ok {
@@ -394,7 +412,7 @@ func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue)
 			return nil, err
 		}
 
-		return wrappedRows{Tracer: s.Tracer, Logger: s.Logger, ctx: ctx, parent: rows}, nil
+		return wrappedRows{opts: s.opts, ctx: ctx, parent: rows}, nil
 	}
 
 	dargs, err := namedValueToValue(args)
