@@ -8,7 +8,7 @@ import (
 	"github.com/luna-duclos/instrumentedsql"
 )
 
-type tracer struct{
+type tracer struct {
 	traceOrphans bool
 }
 
@@ -34,9 +34,9 @@ func (s span) NewChild(name string) instrumentedsql.Span {
 	if s.parent == nil {
 		if s.traceOrphans {
 			return span{parent: opentracing.StartSpan(name), tracer: s.tracer}
-		} else {
-			return s
 		}
+
+		return s
 	}
 
 	return span{parent: opentracing.StartSpan(name, opentracing.ChildOf(s.parent.Context())), tracer: s.tracer}
@@ -47,6 +47,13 @@ func (s span) SetLabel(k, v string) {
 		return
 	}
 	s.parent.SetTag(k, v)
+}
+
+func (s span) SetError(k string, err error) {
+	if s.parent == nil {
+		return
+	}
+	s.parent.SetTag(k, err.Error())
 }
 
 func (s span) Finish() {

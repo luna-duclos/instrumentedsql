@@ -2,6 +2,7 @@ package opentracing
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	opentracing "github.com/opentracing/opentracing-go"
@@ -19,6 +20,7 @@ func TestSpanWithParent(t *testing.T) {
 
 	child := span.NewChild("child")
 	child.SetLabel("child_key", "child_value")
+	child.SetError("error", fmt.Errorf("my error"))
 	child.Finish()
 
 	span.Finish()
@@ -32,6 +34,7 @@ func TestSpanWithoutParent(t *testing.T) {
 
 	child := span.NewChild("child")
 	child.SetLabel("child_key", "child_value")
+	child.SetError("error", fmt.Errorf("my error"))
 	child.Finish()
 
 	span.Finish()
