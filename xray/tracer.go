@@ -25,6 +25,10 @@ func NewTracer() instrumentedsql.Tracer {
 
 // GetSpan returns a span
 func (tracer) GetSpan(ctx context.Context) instrumentedsql.Span {
+	if ctx == nil {
+		return span{ctx: nil}
+	}
+
 	seg := xray.GetSegment(ctx)
 	if seg == nil {
 		return span{ctx: nil}
