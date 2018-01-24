@@ -8,7 +8,6 @@ import (
 )
 
 const (
-	labelError = "err"
 	labelQuery = "query"
 )
 
