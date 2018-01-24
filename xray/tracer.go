@@ -57,7 +57,11 @@ func (s span) SetLabel(k, v string) {
 }
 
 // SetError comply with instrumentedsql.Span
-func (s span) SetError(k string, err error) {
+func (s span) SetError(err error) {
+	if err == nil {
+		return
+	}
+
 	if s.segment == nil {
 		return
 	}

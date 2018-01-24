@@ -49,11 +49,16 @@ func (s span) SetLabel(k, v string) {
 	s.parent.SetTag(k, v)
 }
 
-func (s span) SetError(k string, err error) {
+func (s span) SetError(err error) {
+	if err == nil {
+		return
+	}
+
 	if s.parent == nil {
 		return
 	}
-	s.parent.SetTag(k, err.Error())
+
+	s.parent.SetTag("err", err.Error())
 }
 
 func (s span) Finish() {

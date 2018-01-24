@@ -11,7 +11,7 @@ type Tracer interface {
 type Span interface {
 	NewChild(string) Span
 	SetLabel(k, v string)
-	SetError(k string, err error)
+	SetError(err error)
 	Finish()
 }
 
@@ -30,4 +30,4 @@ func (nullSpan) SetLabel(k, v string) {}
 
 func (nullSpan) Finish() {}
 
-func (nullSpan) SetError(k string, err error) {}
+func (nullSpan) SetError(err error) {}
