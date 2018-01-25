@@ -8,7 +8,7 @@ import (
 	"github.com/luna-duclos/instrumentedsql"
 )
 
-type tracer struct{
+type tracer struct {
 	traceOrphans bool
 }
 
@@ -40,6 +40,14 @@ func (s span) NewChild(name string) instrumentedsql.Span {
 
 func (s span) SetLabel(k, v string) {
 	s.parent.SetAttributes(trace.StringAttribute{Key: k, Value: v})
+}
+
+func (s span) SetError(err error) {
+	if err == nil {
+		return
+	}
+
+	s.parent.SetAttributes(trace.StringAttribute{Key: "err", Value: err.Error()})
 }
 
 func (s span) Finish() {
