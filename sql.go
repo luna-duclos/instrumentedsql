@@ -3,8 +3,10 @@ package instrumentedsql
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
+	"reflect"
+	"strings"
 
-	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 )
 
@@ -73,6 +75,40 @@ func WrapDriver(driver driver.Driver, opts ...Opt) driver.Driver {
 	return d
 }
 
+func formatArgs(args interface{}) string {
+	argsVal := reflect.ValueOf(args)
+	if argsVal.Kind() != reflect.Slice {
+		return "<unknown>"
+	}
+
+	strArgs := make([]string, 0, argsVal.Len())
+	for i := 0; i < argsVal.Len(); i++ {
+		strArgs = append(strArgs, formatArg(argsVal.Index(i).Interface()))
+	}
+
+	return fmt.Sprintf("{%s}", strings.Join(strArgs, ", "))
+}
+
+func formatArg(arg interface{}) string {
+	strArg := ""
+	switch arg := arg.(type) {
+	case []uint8:
+		strArg = fmt.Sprintf("[%T len:%d]", arg, len(arg))
+	case string:
+		strArg = fmt.Sprintf("[%T %q]", arg, arg)
+	case driver.NamedValue:
+		if arg.Name != "" {
+			strArg = fmt.Sprintf("[%T %s=%v]", arg.Value, arg.Name, formatArg(arg.Value))
+		} else {
+			strArg = formatArg(arg.Value)
+		}
+	default:
+		strArg = fmt.Sprintf("[%T %v]", arg, arg)
+	}
+
+	return strArg
+}
+
 func logQuery(ctx context.Context, opts opts, op, query string, err error, args interface{}) {
 	keyvals := []interface{}{
 		"query", query,
@@ -80,7 +116,7 @@ func logQuery(ctx context.Context, opts opts, op, query string, err error, args 
 	}
 
 	if !opts.OmitArgs && args != nil {
-		keyvals = append(keyvals, "args", pretty.Sprint(args))
+		keyvals = append(keyvals, "args", formatArgs(args))
 	}
 
 	opts.Log(ctx, op, keyvals...)
@@ -182,7 +218,7 @@ func (c wrappedConn) ExecContext(ctx context.Context, query string, args []drive
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", query)
 	if !c.OmitArgs {
-		span.SetLabel("args", pretty.Sprint(args))
+		span.SetLabel("args", formatArgs(args))
 	}
 	defer func() {
 		span.SetError(err)
@@ -251,7 +287,7 @@ func (c wrappedConn) QueryContext(ctx context.Context, query string, args []driv
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", query)
 	if !c.OmitArgs {
-		span.SetLabel("args", pretty.Sprint(args))
+		span.SetLabel("args", formatArgs(args))
 	}
 	defer func() {
 		span.SetError(err)
@@ -326,7 +362,7 @@ func (s wrappedStmt) Exec(args []driver.Value) (res driver.Result, err error) {
 	span := s.GetSpan(s.ctx).NewChild("sql-stmt-exec")
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", s.query)
-	span.SetLabel("args", pretty.Sprint(args))
+	span.SetLabel("args", formatArgs(args))
 	defer func() {
 		span.SetError(err)
 		span.Finish()
@@ -345,7 +381,7 @@ func (s wrappedStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 	span := s.GetSpan(s.ctx).NewChild("sql-stmt-query")
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", s.query)
-	span.SetLabel("args", pretty.Sprint(args))
+	span.SetLabel("args", formatArgs(args))
 	defer func() {
 		span.SetError(err)
 		span.Finish()
@@ -364,7 +400,7 @@ func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) 
 	span := s.GetSpan(ctx).NewChild("sql-stmt-exec")
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", s.query)
-	span.SetLabel("args", pretty.Sprint(args))
+	span.SetLabel("args", formatArgs(args))
 	defer func() {
 		span.SetError(err)
 		span.Finish()
@@ -399,7 +435,7 @@ func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue)
 	span := s.GetSpan(ctx).NewChild("sql-stmt-query")
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", s.query)
-	span.SetLabel("args", pretty.Sprint(args))
+	span.SetLabel("args", formatArgs(args))
 	defer func() {
 		span.SetError(err)
 		span.Finish()
