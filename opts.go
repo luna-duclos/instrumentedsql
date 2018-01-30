@@ -47,7 +47,7 @@ func WithTraceRowsNext() Opt {
 	}
 }
 
-// WithTraceRowsNext will make it so calls to rows.Next() are traced.
+// WithNoTraceRowsNext will make it so calls to rows.Next() are traced.
 // This is the default, but can be used to override WithTraceRowsNext
 func WithNoTraceRowsNext() Opt {
 	return func(o *opts) {
