@@ -1,5 +1,12 @@
 package instrumentedsql
 
+type opts struct {
+	Logger
+	Tracer
+	OmitArgs           bool
+	TraceRowsNext      bool
+}
+
 // Opt is a functional option type for the wrapped driver
 type Opt func(*opts)
 
@@ -29,5 +36,21 @@ func WithOmitArgs() Opt {
 func WithIncludeArgs() Opt {
 	return func(o *opts) {
 		o.OmitArgs = false
+	}
+}
+
+// WithTraceRowsNext will make it so calls to rows.Next() are traced.
+// Those calls are usually incredibly brief, so are by default not traced.
+func WithTraceRowsNext() Opt {
+	return func(o *opts) {
+		o.TraceRowsNext = true
+	}
+}
+
+// WithTraceRowsNext will make it so calls to rows.Next() are traced.
+// This is the default, but can be used to override WithTraceRowsNext
+func WithNoTraceRowsNext() Opt {
+	return func(o *opts) {
+		o.TraceRowsNext = false
 	}
 }

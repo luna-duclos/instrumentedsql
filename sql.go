@@ -10,13 +10,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-type opts struct {
-	Logger
-	Tracer
-	OmitArgs           bool
-	TraceWithoutParent bool
-}
-
 type wrappedDriver struct {
 	opts
 	parent driver.Driver
@@ -498,11 +491,16 @@ func (r wrappedRows) Close() error {
 }
 
 func (r wrappedRows) Next(dest []driver.Value) (err error) {
-	span := r.GetSpan(r.ctx).NewChild("sql-rows-next")
-	span.SetLabel("component", "database/sql")
+	if r.opts.TraceRowsNext {
+		span := r.GetSpan(r.ctx).NewChild("sql-rows-next")
+		span.SetLabel("component", "database/sql")
+		defer func() {
+			span.SetError(err)
+			span.Finish()
+		}()
+	}
+
 	defer func() {
-		span.SetError(err)
-		span.Finish()
 		r.Log(r.ctx, "sql-rows-next", "err", err)
 	}()
 
