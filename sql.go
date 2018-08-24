@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -120,10 +121,11 @@ func formatArg(arg interface{}) string {
 	return strArg
 }
 
-func logQuery(ctx context.Context, opts opts, op, query string, err error, args interface{}) {
+func logQuery(ctx context.Context, opts opts, op, query string, err error, args interface{}, since time.Time) {
 	keyvals := []interface{}{
 		"query", query,
 		"err", err,
+		"duration", time.Since(since),
 	}
 
 	if !opts.OmitArgs && args != nil {
@@ -167,10 +169,11 @@ func (c wrappedConn) Begin() (driver.Tx, error) {
 func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx driver.Tx, err error) {
 	span := c.GetSpan(ctx).NewChild(OpSQLTxBegin)
 	span.SetLabel("component", "database/sql")
+	start := time.Now()
 	defer func() {
 		span.SetError(err)
 		span.Finish()
-		c.Log(ctx, OpSQLTxBegin, "err", err)
+		c.Log(ctx, OpSQLTxBegin, "err", err, "duration", time.Since(start))
 	}()
 
 	if connBeginTx, ok := c.parent.(driver.ConnBeginTx); ok {
@@ -193,10 +196,11 @@ func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx dri
 func (c wrappedConn) PrepareContext(ctx context.Context, query string) (stmt driver.Stmt, err error) {
 	span := c.GetSpan(ctx).NewChild(OpSQLPrepare)
 	span.SetLabel("component", "database/sql")
+	start := time.Now()
 	defer func() {
 		span.SetError(err)
 		span.Finish()
-		logQuery(ctx, c.opts, OpSQLPrepare, query, err, nil)
+		logQuery(ctx, c.opts, OpSQLPrepare, query, err, nil, start)
 	}()
 
 	if connPrepareCtx, ok := c.parent.(driver.ConnPrepareContext); ok {
@@ -231,11 +235,12 @@ func (c wrappedConn) ExecContext(ctx context.Context, query string, args []drive
 	if !c.OmitArgs {
 		span.SetLabel("args", formatArgs(args))
 	}
+	start := time.Now()
 	defer func() {
 		span.SetError(err)
 		span.Finish()
 
-		logQuery(ctx, c.opts, OpSQLConnExec, query, err, args)
+		logQuery(ctx, c.opts, OpSQLConnExec, query, err, args, start)
 	}()
 
 	if execContext, ok := c.parent.(driver.ExecerContext); ok {
@@ -266,16 +271,17 @@ func (c wrappedConn) Ping(ctx context.Context) (err error) {
 	if pinger, ok := c.parent.(driver.Pinger); ok {
 		span := c.GetSpan(ctx).NewChild(OpSQLPing)
 		span.SetLabel("component", "database/sql")
+		start := time.Now()
 		defer func() {
 			span.SetError(err)
 			span.Finish()
-			c.Log(ctx, OpSQLPing, "err", err)
+			c.Log(ctx, OpSQLPing, "err", err, "duration", time.Since(start))
 		}()
 
 		return pinger.Ping(ctx)
 	}
 
-	c.Log(ctx, OpSQLDummyPing)
+	c.Log(ctx, OpSQLDummyPing, "duration", time.Duration(0))
 
 	return nil
 }
@@ -300,10 +306,11 @@ func (c wrappedConn) QueryContext(ctx context.Context, query string, args []driv
 	if !c.OmitArgs {
 		span.SetLabel("args", formatArgs(args))
 	}
+	start := time.Now()
 	defer func() {
 		span.SetError(err)
 		span.Finish()
-		logQuery(ctx, c.opts, OpSQLConnQuery, query, err, args)
+		logQuery(ctx, c.opts, OpSQLConnQuery, query, err, args, start)
 	}()
 
 	if queryerContext, ok := c.parent.(driver.QueryerContext); ok {
@@ -332,10 +339,11 @@ func (c wrappedConn) QueryContext(ctx context.Context, query string, args []driv
 func (t wrappedTx) Commit() (err error) {
 	span := t.GetSpan(t.ctx).NewChild(OpSQLTxCommit)
 	span.SetLabel("component", "database/sql")
+	start := time.Now()
 	defer func() {
 		span.SetError(err)
 		span.Finish()
-		t.Log(t.ctx, OpSQLTxCommit, "err", err)
+		t.Log(t.ctx, OpSQLTxCommit, "err", err, "duration", time.Since(start))
 	}()
 
 	return t.parent.Commit()
@@ -344,10 +352,11 @@ func (t wrappedTx) Commit() (err error) {
 func (t wrappedTx) Rollback() (err error) {
 	span := t.GetSpan(t.ctx).NewChild(OpSQLTxRollback)
 	span.SetLabel("component", "database/sql")
+	start := time.Now()
 	defer func() {
 		span.SetError(err)
 		span.Finish()
-		t.Log(t.ctx, OpSQLTxRollback, "err", err)
+		t.Log(t.ctx, OpSQLTxRollback, "err", err, "duration", time.Since(start))
 	}()
 
 	return t.parent.Rollback()
@@ -356,10 +365,11 @@ func (t wrappedTx) Rollback() (err error) {
 func (s wrappedStmt) Close() (err error) {
 	span := s.GetSpan(s.ctx).NewChild(OpSQLStmtClose)
 	span.SetLabel("component", "database/sql")
+	start := time.Now()
 	defer func() {
 		span.SetError(err)
 		span.Finish()
-		s.Log(s.ctx, OpSQLStmtClose, "err", err)
+		s.Log(s.ctx, OpSQLStmtClose, "err", err, "duration", time.Since(start))
 	}()
 
 	return s.parent.Close()
@@ -374,10 +384,11 @@ func (s wrappedStmt) Exec(args []driver.Value) (res driver.Result, err error) {
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", s.query)
 	span.SetLabel("args", formatArgs(args))
+	start := time.Now()
 	defer func() {
 		span.SetError(err)
 		span.Finish()
-		logQuery(s.ctx, s.opts, OpSQLStmtExec, s.query, err, args)
+		logQuery(s.ctx, s.opts, OpSQLStmtExec, s.query, err, args, start)
 	}()
 
 	res, err = s.parent.Exec(args)
@@ -393,10 +404,11 @@ func (s wrappedStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", s.query)
 	span.SetLabel("args", formatArgs(args))
+	start := time.Now()
 	defer func() {
 		span.SetError(err)
 		span.Finish()
-		logQuery(s.ctx, s.opts, OpSQLStmtQuery, s.query, err, args)
+		logQuery(s.ctx, s.opts, OpSQLStmtQuery, s.query, err, args, start)
 	}()
 
 	rows, err = s.parent.Query(args)
@@ -412,10 +424,11 @@ func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) 
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", s.query)
 	span.SetLabel("args", formatArgs(args))
+	start := time.Now()
 	defer func() {
 		span.SetError(err)
 		span.Finish()
-		logQuery(ctx, s.opts, OpSQLStmtExec, s.query, err, args)
+		logQuery(ctx, s.opts, OpSQLStmtExec, s.query, err, args, start)
 	}()
 
 	if stmtExecContext, ok := s.parent.(driver.StmtExecContext); ok {
@@ -447,10 +460,11 @@ func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue)
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", s.query)
 	span.SetLabel("args", formatArgs(args))
+	start := time.Now()
 	defer func() {
 		span.SetError(err)
 		span.Finish()
-		logQuery(ctx, s.opts, OpSQLStmtQuery, s.query, err, args)
+		logQuery(ctx, s.opts, OpSQLStmtQuery, s.query, err, args, start)
 	}()
 
 	if stmtQueryContext, ok := s.parent.(driver.StmtQueryContext); ok {
@@ -479,10 +493,11 @@ func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue)
 func (r wrappedResult) LastInsertId() (id int64, err error) {
 	span := r.GetSpan(r.ctx).NewChild(OpSQLResLastInsertID)
 	span.SetLabel("component", "database/sql")
+	start := time.Now()
 	defer func() {
 		span.SetError(err)
 		span.Finish()
-		r.Log(r.ctx, OpSQLResLastInsertID, "err", err)
+		r.Log(r.ctx, OpSQLResLastInsertID, "err", err, "duration", time.Since(start))
 	}()
 
 	return r.parent.LastInsertId()
@@ -491,10 +506,11 @@ func (r wrappedResult) LastInsertId() (id int64, err error) {
 func (r wrappedResult) RowsAffected() (num int64, err error) {
 	span := r.GetSpan(r.ctx).NewChild(OpSQLResRowsAffected)
 	span.SetLabel("component", "database/sql")
+	start := time.Now()
 	defer func() {
 		span.SetError(err)
 		span.Finish()
-		r.Log(r.ctx, OpSQLResRowsAffected, "err", err)
+		r.Log(r.ctx, OpSQLResRowsAffected, "err", err, "duration", time.Since(start))
 	}()
 
 	return r.parent.RowsAffected()
@@ -518,8 +534,9 @@ func (r wrappedRows) Next(dest []driver.Value) (err error) {
 		}()
 	}
 
+	start := time.Now()
 	defer func() {
-		r.Log(r.ctx, OpSQLRowsNext, "err", err)
+		r.Log(r.ctx, OpSQLRowsNext, "err", err, "duration", time.Since(start))
 	}()
 
 	return r.parent.Next(dest)
