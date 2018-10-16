@@ -3,9 +3,10 @@ package opentracing
 import (
 	"context"
 
-	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 
 	"github.com/luna-duclos/instrumentedsql"
+	"github.com/opentracing/opentracing-go"
 )
 
 type tracer struct {
@@ -58,7 +59,7 @@ func (s span) SetError(err error) {
 		return
 	}
 
-	s.parent.SetTag("err", err.Error())
+	ext.Error.Set(s.parent, true)
 }
 
 func (s span) Finish() {
