@@ -35,11 +35,19 @@ func (s span) NewChild(name string) instrumentedsql.Span {
 		return s
 	}
 
-	return span{parent: s.parent.StartSpan(name), tracer: s.tracer}
+	var parent *trace.Span
+
+	if s.parent == nil {
+		_, parent = trace.StartSpan(context.Background(), name)
+	} else {
+		_, parent = trace.StartSpan(trace.NewContext(context.Background(), s.parent), name)
+	}
+
+	return span{parent: parent, tracer: s.tracer}
 }
 
 func (s span) SetLabel(k, v string) {
-	s.parent.SetAttributes(trace.StringAttribute{Key: k, Value: v})
+	s.parent.AddAttributes(trace.StringAttribute(k, v))
 }
 
 func (s span) SetError(err error) {
@@ -47,7 +55,7 @@ func (s span) SetError(err error) {
 		return
 	}
 
-	s.parent.SetAttributes(trace.StringAttribute{Key: "err", Value: err.Error()})
+	s.parent.AddAttributes(trace.StringAttribute("err", err.Error()))
 }
 
 func (s span) Finish() {
