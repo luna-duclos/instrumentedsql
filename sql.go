@@ -383,7 +383,9 @@ func (s wrappedStmt) Exec(args []driver.Value) (res driver.Result, err error) {
 	span := s.GetSpan(s.ctx).NewChild(OpSQLStmtExec)
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", s.query)
-	span.SetLabel("args", formatArgs(args))
+	if !s.OmitArgs {
+		span.SetLabel("args", formatArgs(args))
+	}
 	start := time.Now()
 	defer func() {
 		span.SetError(err)
@@ -403,7 +405,9 @@ func (s wrappedStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 	span := s.GetSpan(s.ctx).NewChild(OpSQLStmtQuery)
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", s.query)
-	span.SetLabel("args", formatArgs(args))
+	if !s.OmitArgs {
+		span.SetLabel("args", formatArgs(args))
+	}
 	start := time.Now()
 	defer func() {
 		span.SetError(err)
@@ -423,7 +427,9 @@ func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) 
 	span := s.GetSpan(ctx).NewChild(OpSQLStmtExec)
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", s.query)
-	span.SetLabel("args", formatArgs(args))
+	if !s.OmitArgs {
+		span.SetLabel("args", formatArgs(args))
+	}
 	start := time.Now()
 	defer func() {
 		span.SetError(err)
@@ -459,7 +465,9 @@ func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue)
 	span := s.GetSpan(ctx).NewChild(OpSQLStmtQuery)
 	span.SetLabel("component", "database/sql")
 	span.SetLabel("query", s.query)
-	span.SetLabel("args", formatArgs(args))
+	if !s.OmitArgs {
+		span.SetLabel("args", formatArgs(args))
+	}
 	start := time.Now()
 	defer func() {
 		span.SetError(err)
