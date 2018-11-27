@@ -2,6 +2,7 @@ package opencensus
 
 import (
 	"context"
+	"database/sql/driver"
 
 	"go.opencensus.io/trace"
 
@@ -51,7 +52,7 @@ func (s span) SetLabel(k, v string) {
 }
 
 func (s span) SetError(err error) {
-	if err == nil {
+	if err == nil || err == driver.ErrSkip {
 		return
 	}
 
