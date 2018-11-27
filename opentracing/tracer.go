@@ -2,6 +2,7 @@ package opentracing
 
 import (
 	"context"
+	"database/sql/driver"
 
 	"github.com/opentracing/opentracing-go/ext"
 
@@ -51,7 +52,7 @@ func (s span) SetLabel(k, v string) {
 }
 
 func (s span) SetError(err error) {
-	if err == nil {
+	if err == nil || err == driver.ErrSkip {
 		return
 	}
 

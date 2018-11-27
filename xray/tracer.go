@@ -2,6 +2,7 @@ package xray
 
 import (
 	"context"
+	"database/sql/driver"
 
 	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/luna-duclos/instrumentedsql"
@@ -61,7 +62,7 @@ func (s span) SetLabel(k, v string) {
 
 // SetError comply with instrumentedsql.Span
 func (s span) SetError(err error) {
-	if err == nil {
+	if err == nil || err == driver.ErrSkip {
 		return
 	}
 

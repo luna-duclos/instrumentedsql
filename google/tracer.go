@@ -2,6 +2,7 @@ package google
 
 import (
 	"context"
+	"database/sql/driver"
 
 	"cloud.google.com/go/trace"
 
@@ -43,7 +44,7 @@ func (s span) SetLabel(k, v string) {
 }
 
 func (s span) SetError(err error) {
-	if err == nil {
+	if err == nil || err == driver.ErrSkip {
 		return
 	}
 
