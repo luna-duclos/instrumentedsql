@@ -209,7 +209,7 @@ func (c wrappedConn) PrepareContext(ctx context.Context, query string) (stmt dri
 			return nil, err
 		}
 
-		return wrappedStmt{opts: c.opts, ctx: ctx, parent: stmt}, nil
+		return wrappedStmt{opts: c.opts, ctx: ctx, query: query, parent: stmt}, nil
 	}
 
 	return c.Prepare(query)
