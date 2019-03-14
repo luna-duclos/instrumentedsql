@@ -4,10 +4,10 @@ import (
 	"context"
 	"database/sql/driver"
 
-	"github.com/opentracing/opentracing-go/ext"
-
 	"github.com/luna-duclos/instrumentedsql"
 	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
+	"github.com/opentracing/opentracing-go/log"
 )
 
 type tracer struct {
@@ -61,6 +61,7 @@ func (s span) SetError(err error) {
 	}
 
 	ext.Error.Set(s.parent, true)
+	s.parent.LogFields(log.Error(err))
 }
 
 func (s span) Finish() {
