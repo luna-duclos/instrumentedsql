@@ -167,14 +167,16 @@ func (c wrappedConn) Begin() (driver.Tx, error) {
 }
 
 func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx driver.Tx, err error) {
-	span := c.GetSpan(ctx).NewChild(OpSQLTxBegin)
-	span.SetLabel("component", "database/sql")
-	start := time.Now()
-	defer func() {
-		span.SetError(err)
-		span.Finish()
-		c.Log(ctx, OpSQLTxBegin, "err", err, "duration", time.Since(start))
-	}()
+	if !c.hasOpExcluded(OpSQLTxBegin) {
+		span := c.GetSpan(ctx).NewChild(OpSQLTxBegin)
+		span.SetLabel("component", "database/sql")
+		start := time.Now()
+		defer func() {
+			span.SetError(err)
+			span.Finish()
+			c.Log(ctx, OpSQLTxBegin, "err", err, "duration", time.Since(start))
+		}()
+	}
 
 	if connBeginTx, ok := c.parent.(driver.ConnBeginTx); ok {
 		tx, err = connBeginTx.BeginTx(ctx, opts)
@@ -194,14 +196,16 @@ func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx dri
 }
 
 func (c wrappedConn) PrepareContext(ctx context.Context, query string) (stmt driver.Stmt, err error) {
-	span := c.GetSpan(ctx).NewChild(OpSQLPrepare)
-	span.SetLabel("component", "database/sql")
-	start := time.Now()
-	defer func() {
-		span.SetError(err)
-		span.Finish()
-		logQuery(ctx, c.opts, OpSQLPrepare, query, err, nil, start)
-	}()
+	if !c.hasOpExcluded(OpSQLPrepare) {
+		span := c.GetSpan(ctx).NewChild(OpSQLPrepare)
+		span.SetLabel("component", "database/sql")
+		start := time.Now()
+		defer func() {
+			span.SetError(err)
+			span.Finish()
+			logQuery(ctx, c.opts, OpSQLPrepare, query, err, nil, start)
+		}()
+	}
 
 	if connPrepareCtx, ok := c.parent.(driver.ConnPrepareContext); ok {
 		stmt, err := connPrepareCtx.PrepareContext(ctx, query)
@@ -229,19 +233,21 @@ func (c wrappedConn) Exec(query string, args []driver.Value) (driver.Result, err
 }
 
 func (c wrappedConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (r driver.Result, err error) {
-	span := c.GetSpan(ctx).NewChild(OpSQLConnExec)
-	span.SetLabel("component", "database/sql")
-	span.SetLabel("query", query)
-	if !c.OmitArgs {
-		span.SetLabel("args", formatArgs(args))
-	}
-	start := time.Now()
-	defer func() {
-		span.SetError(err)
-		span.Finish()
+	if !c.hasOpExcluded(OpSQLConnExec) {
+		span := c.GetSpan(ctx).NewChild(OpSQLConnExec)
+		span.SetLabel("component", "database/sql")
+		span.SetLabel("query", query)
+		if !c.OmitArgs {
+			span.SetLabel("args", formatArgs(args))
+		}
+		start := time.Now()
+		defer func() {
+			span.SetError(err)
+			span.Finish()
 
-		logQuery(ctx, c.opts, OpSQLConnExec, query, err, args, start)
-	}()
+			logQuery(ctx, c.opts, OpSQLConnExec, query, err, args, start)
+		}()
+	}
 
 	if execContext, ok := c.parent.(driver.ExecerContext); ok {
 		res, err := execContext.ExecContext(ctx, query, args)
@@ -269,14 +275,16 @@ func (c wrappedConn) ExecContext(ctx context.Context, query string, args []drive
 
 func (c wrappedConn) Ping(ctx context.Context) (err error) {
 	if pinger, ok := c.parent.(driver.Pinger); ok {
-		span := c.GetSpan(ctx).NewChild(OpSQLPing)
-		span.SetLabel("component", "database/sql")
-		start := time.Now()
-		defer func() {
-			span.SetError(err)
-			span.Finish()
-			c.Log(ctx, OpSQLPing, "err", err, "duration", time.Since(start))
-		}()
+		if !c.hasOpExcluded(OpSQLPing) {
+			span := c.GetSpan(ctx).NewChild(OpSQLPing)
+			span.SetLabel("component", "database/sql")
+			start := time.Now()
+			defer func() {
+				span.SetError(err)
+				span.Finish()
+				c.Log(ctx, OpSQLPing, "err", err, "duration", time.Since(start))
+			}()
+		}
 
 		return pinger.Ping(ctx)
 	}
@@ -300,18 +308,20 @@ func (c wrappedConn) Query(query string, args []driver.Value) (driver.Rows, erro
 }
 
 func (c wrappedConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {
-	span := c.GetSpan(ctx).NewChild(OpSQLConnQuery)
-	span.SetLabel("component", "database/sql")
-	span.SetLabel("query", query)
-	if !c.OmitArgs {
-		span.SetLabel("args", formatArgs(args))
+	if !c.hasOpExcluded(OpSQLConnQuery) {
+		span := c.GetSpan(ctx).NewChild(OpSQLConnQuery)
+		span.SetLabel("component", "database/sql")
+		span.SetLabel("query", query)
+		if !c.OmitArgs {
+			span.SetLabel("args", formatArgs(args))
+		}
+		start := time.Now()
+		defer func() {
+			span.SetError(err)
+			span.Finish()
+			logQuery(ctx, c.opts, OpSQLConnQuery, query, err, args, start)
+		}()
 	}
-	start := time.Now()
-	defer func() {
-		span.SetError(err)
-		span.Finish()
-		logQuery(ctx, c.opts, OpSQLConnQuery, query, err, args, start)
-	}()
 
 	if queryerContext, ok := c.parent.(driver.QueryerContext); ok {
 		rows, err := queryerContext.QueryContext(ctx, query, args)
@@ -337,40 +347,46 @@ func (c wrappedConn) QueryContext(ctx context.Context, query string, args []driv
 }
 
 func (t wrappedTx) Commit() (err error) {
-	span := t.GetSpan(t.ctx).NewChild(OpSQLTxCommit)
-	span.SetLabel("component", "database/sql")
-	start := time.Now()
-	defer func() {
-		span.SetError(err)
-		span.Finish()
-		t.Log(t.ctx, OpSQLTxCommit, "err", err, "duration", time.Since(start))
-	}()
+	if !t.hasOpExcluded(OpSQLTxCommit) {
+		span := t.GetSpan(t.ctx).NewChild(OpSQLTxCommit)
+		span.SetLabel("component", "database/sql")
+		start := time.Now()
+		defer func() {
+			span.SetError(err)
+			span.Finish()
+			t.Log(t.ctx, OpSQLTxCommit, "err", err, "duration", time.Since(start))
+		}()
+	}
 
 	return t.parent.Commit()
 }
 
 func (t wrappedTx) Rollback() (err error) {
-	span := t.GetSpan(t.ctx).NewChild(OpSQLTxRollback)
-	span.SetLabel("component", "database/sql")
-	start := time.Now()
-	defer func() {
-		span.SetError(err)
-		span.Finish()
-		t.Log(t.ctx, OpSQLTxRollback, "err", err, "duration", time.Since(start))
-	}()
+	if !t.hasOpExcluded(OpSQLTxRollback) {
+		span := t.GetSpan(t.ctx).NewChild(OpSQLTxRollback)
+		span.SetLabel("component", "database/sql")
+		start := time.Now()
+		defer func() {
+			span.SetError(err)
+			span.Finish()
+			t.Log(t.ctx, OpSQLTxRollback, "err", err, "duration", time.Since(start))
+		}()
+	}
 
 	return t.parent.Rollback()
 }
 
 func (s wrappedStmt) Close() (err error) {
-	span := s.GetSpan(s.ctx).NewChild(OpSQLStmtClose)
-	span.SetLabel("component", "database/sql")
-	start := time.Now()
-	defer func() {
-		span.SetError(err)
-		span.Finish()
-		s.Log(s.ctx, OpSQLStmtClose, "err", err, "duration", time.Since(start))
-	}()
+	if !s.hasOpExcluded(OpSQLStmtClose) {
+		span := s.GetSpan(s.ctx).NewChild(OpSQLStmtClose)
+		span.SetLabel("component", "database/sql")
+		start := time.Now()
+		defer func() {
+			span.SetError(err)
+			span.Finish()
+			s.Log(s.ctx, OpSQLStmtClose, "err", err, "duration", time.Since(start))
+		}()
+	}
 
 	return s.parent.Close()
 }
@@ -380,18 +396,20 @@ func (s wrappedStmt) NumInput() int {
 }
 
 func (s wrappedStmt) Exec(args []driver.Value) (res driver.Result, err error) {
-	span := s.GetSpan(s.ctx).NewChild(OpSQLStmtExec)
-	span.SetLabel("component", "database/sql")
-	span.SetLabel("query", s.query)
-	if !s.OmitArgs {
-		span.SetLabel("args", formatArgs(args))
+	if !s.hasOpExcluded(OpSQLStmtExec) {
+		span := s.GetSpan(s.ctx).NewChild(OpSQLStmtExec)
+		span.SetLabel("component", "database/sql")
+		span.SetLabel("query", s.query)
+		if !s.OmitArgs {
+			span.SetLabel("args", formatArgs(args))
+		}
+		start := time.Now()
+		defer func() {
+			span.SetError(err)
+			span.Finish()
+			logQuery(s.ctx, s.opts, OpSQLStmtExec, s.query, err, args, start)
+		}()
 	}
-	start := time.Now()
-	defer func() {
-		span.SetError(err)
-		span.Finish()
-		logQuery(s.ctx, s.opts, OpSQLStmtExec, s.query, err, args, start)
-	}()
 
 	res, err = s.parent.Exec(args)
 	if err != nil {
@@ -402,18 +420,20 @@ func (s wrappedStmt) Exec(args []driver.Value) (res driver.Result, err error) {
 }
 
 func (s wrappedStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
-	span := s.GetSpan(s.ctx).NewChild(OpSQLStmtQuery)
-	span.SetLabel("component", "database/sql")
-	span.SetLabel("query", s.query)
-	if !s.OmitArgs {
-		span.SetLabel("args", formatArgs(args))
+	if !s.hasOpExcluded(OpSQLStmtQuery) {
+		span := s.GetSpan(s.ctx).NewChild(OpSQLStmtQuery)
+		span.SetLabel("component", "database/sql")
+		span.SetLabel("query", s.query)
+		if !s.OmitArgs {
+			span.SetLabel("args", formatArgs(args))
+		}
+		start := time.Now()
+		defer func() {
+			span.SetError(err)
+			span.Finish()
+			logQuery(s.ctx, s.opts, OpSQLStmtQuery, s.query, err, args, start)
+		}()
 	}
-	start := time.Now()
-	defer func() {
-		span.SetError(err)
-		span.Finish()
-		logQuery(s.ctx, s.opts, OpSQLStmtQuery, s.query, err, args, start)
-	}()
 
 	rows, err = s.parent.Query(args)
 	if err != nil {
@@ -424,18 +444,20 @@ func (s wrappedStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 }
 
 func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (res driver.Result, err error) {
-	span := s.GetSpan(ctx).NewChild(OpSQLStmtExec)
-	span.SetLabel("component", "database/sql")
-	span.SetLabel("query", s.query)
-	if !s.OmitArgs {
-		span.SetLabel("args", formatArgs(args))
+	if !s.hasOpExcluded(OpSQLStmtExec) {
+		span := s.GetSpan(ctx).NewChild(OpSQLStmtExec)
+		span.SetLabel("component", "database/sql")
+		span.SetLabel("query", s.query)
+		if !s.OmitArgs {
+			span.SetLabel("args", formatArgs(args))
+		}
+		start := time.Now()
+		defer func() {
+			span.SetError(err)
+			span.Finish()
+			logQuery(ctx, s.opts, OpSQLStmtExec, s.query, err, args, start)
+		}()
 	}
-	start := time.Now()
-	defer func() {
-		span.SetError(err)
-		span.Finish()
-		logQuery(ctx, s.opts, OpSQLStmtExec, s.query, err, args, start)
-	}()
 
 	if stmtExecContext, ok := s.parent.(driver.StmtExecContext); ok {
 		res, err := stmtExecContext.ExecContext(ctx, args)
@@ -462,18 +484,20 @@ func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) 
 }
 
 func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (rows driver.Rows, err error) {
-	span := s.GetSpan(ctx).NewChild(OpSQLStmtQuery)
-	span.SetLabel("component", "database/sql")
-	span.SetLabel("query", s.query)
-	if !s.OmitArgs {
-		span.SetLabel("args", formatArgs(args))
+	if !s.hasOpExcluded(OpSQLStmtQuery) {
+		span := s.GetSpan(ctx).NewChild(OpSQLStmtQuery)
+		span.SetLabel("component", "database/sql")
+		span.SetLabel("query", s.query)
+		if !s.OmitArgs {
+			span.SetLabel("args", formatArgs(args))
+		}
+		start := time.Now()
+		defer func() {
+			span.SetError(err)
+			span.Finish()
+			logQuery(ctx, s.opts, OpSQLStmtQuery, s.query, err, args, start)
+		}()
 	}
-	start := time.Now()
-	defer func() {
-		span.SetError(err)
-		span.Finish()
-		logQuery(ctx, s.opts, OpSQLStmtQuery, s.query, err, args, start)
-	}()
 
 	if stmtQueryContext, ok := s.parent.(driver.StmtQueryContext); ok {
 		rows, err := stmtQueryContext.QueryContext(ctx, args)
@@ -500,27 +524,31 @@ func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue)
 }
 
 func (r wrappedResult) LastInsertId() (id int64, err error) {
-	span := r.GetSpan(r.ctx).NewChild(OpSQLResLastInsertID)
-	span.SetLabel("component", "database/sql")
-	start := time.Now()
-	defer func() {
-		span.SetError(err)
-		span.Finish()
-		r.Log(r.ctx, OpSQLResLastInsertID, "err", err, "duration", time.Since(start))
-	}()
+	if !r.hasOpExcluded(OpSQLResLastInsertID) {
+		span := r.GetSpan(r.ctx).NewChild(OpSQLResLastInsertID)
+		span.SetLabel("component", "database/sql")
+		start := time.Now()
+		defer func() {
+			span.SetError(err)
+			span.Finish()
+			r.Log(r.ctx, OpSQLResLastInsertID, "err", err, "duration", time.Since(start))
+		}()
+	}
 
 	return r.parent.LastInsertId()
 }
 
 func (r wrappedResult) RowsAffected() (num int64, err error) {
-	span := r.GetSpan(r.ctx).NewChild(OpSQLResRowsAffected)
-	span.SetLabel("component", "database/sql")
-	start := time.Now()
-	defer func() {
-		span.SetError(err)
-		span.Finish()
-		r.Log(r.ctx, OpSQLResRowsAffected, "err", err, "duration", time.Since(start))
-	}()
+	if !r.hasOpExcluded(OpSQLResRowsAffected) {
+		span := r.GetSpan(r.ctx).NewChild(OpSQLResRowsAffected)
+		span.SetLabel("component", "database/sql")
+		start := time.Now()
+		defer func() {
+			span.SetError(err)
+			span.Finish()
+			r.Log(r.ctx, OpSQLResRowsAffected, "err", err, "duration", time.Since(start))
+		}()
+	}
 
 	return r.parent.RowsAffected()
 }
@@ -534,7 +562,7 @@ func (r wrappedRows) Close() error {
 }
 
 func (r wrappedRows) Next(dest []driver.Value) (err error) {
-	if r.opts.TraceRowsNext {
+	if !r.hasOpExcluded(OpSQLRowsNext) {
 		span := r.GetSpan(r.ctx).NewChild(OpSQLRowsNext)
 		span.SetLabel("component", "database/sql")
 		defer func() {
