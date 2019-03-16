@@ -3,17 +3,32 @@ package instrumentedsql
 type opts struct {
 	Logger
 	Tracer
-	OmitArgs           bool
-	TraceRowsNext      bool
+	OpsExcluded map[string]struct{}
+	OmitArgs    bool
 }
 
 // Opt is a functional option type for the wrapped driver
 type Opt func(*opts)
 
+func (o *opts) hasOpExcluded(op string) bool {
+	_, ok := o.OpsExcluded[op]
+	return ok
+}
+
 // WithLogger sets the logger of the wrapped driver to the provided logger
 func WithLogger(l Logger) Opt {
 	return func(o *opts) {
 		o.Logger = l
+	}
+}
+
+// WithOpsExcluded excludes some of OpSQL that are not required
+func WithOpsExcluded(ops ...string) Opt {
+	return func(o *opts) {
+		o.OpsExcluded = make(map[string]struct{})
+		for _, op := range ops {
+			o.OpsExcluded[op] = struct{}{}
+		}
 	}
 }
 
@@ -36,21 +51,5 @@ func WithOmitArgs() Opt {
 func WithIncludeArgs() Opt {
 	return func(o *opts) {
 		o.OmitArgs = false
-	}
-}
-
-// WithTraceRowsNext will make it so calls to rows.Next() are traced.
-// Those calls are usually incredibly brief, so are by default not traced.
-func WithTraceRowsNext() Opt {
-	return func(o *opts) {
-		o.TraceRowsNext = true
-	}
-}
-
-// WithNoTraceRowsNext will make it so calls to rows.Next() are traced.
-// This is the default, but can be used to override WithTraceRowsNext
-func WithNoTraceRowsNext() Opt {
-	return func(o *opts) {
-		o.TraceRowsNext = false
 	}
 }
