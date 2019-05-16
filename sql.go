@@ -184,6 +184,15 @@ func (c wrappedConn) Prepare(query string) (driver.Stmt, error) {
 	return wrappedStmt{opts: c.opts, query: query, parent: parent}, nil
 }
 
+func (c wrappedConn) ResetSession(ctx context.Context) error {
+	conn, ok := c.parent.(driver.SessionResetter)
+	if !ok {
+		return nil
+	}
+
+	return conn.ResetSession(ctx)
+}
+
 func (c wrappedConn) Close() error {
 	return c.parent.Close()
 }
