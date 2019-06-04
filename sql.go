@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 	"time"
@@ -566,7 +567,9 @@ func (r wrappedRows) Next(dest []driver.Value) (err error) {
 		span := r.GetSpan(r.ctx).NewChild(OpSQLRowsNext)
 		span.SetLabel("component", "database/sql")
 		defer func() {
-			span.SetError(err)
+			if err != io.EOF {
+				span.SetError(err)
+			}
 			span.Finish()
 		}()
 	}
