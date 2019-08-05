@@ -61,7 +61,10 @@ func (s span) SetError(err error) {
 	}
 
 	ext.Error.Set(s.parent, true)
-	s.parent.LogFields(log.Error(err))
+	s.parent.LogFields(
+		log.String("event", "error"),
+		log.String("message", err.Error()),
+	)
 }
 
 func (s span) Finish() {
