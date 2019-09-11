@@ -187,6 +187,13 @@ func (c wrappedConn) Query(query string, args []driver.Value) (driver.Rows, erro
 }
 
 func (c wrappedConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {
+	// Quick skip path: If the wrapped connection implements neither queryercontext not queryer, we have absolutely nothing to do
+	_, hasQueryerContext := c.parent.(driver.QueryerContext)
+	_, hasQueryer := c.parent.(driver.Queryer)
+	if !hasQueryerContext && !hasQueryer {
+		return nil, driver.ErrSkip
+	}
+
 	if !c.hasOpExcluded(OpSQLConnQuery) {
 		span := c.GetSpan(ctx).NewChild(OpSQLConnQuery)
 		span.SetLabel("component", "database/sql")
