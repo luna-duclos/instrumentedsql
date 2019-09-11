@@ -1,5 +1,3 @@
-// +build go1.10
-
 package instrumentedsql
 
 import (
@@ -39,11 +37,6 @@ type wrappedDriver struct {
 type wrappedConn struct {
 	opts
 	parent driver.Conn
-}
-
-type wrappedConnector struct {
-	parent    driver.Connector
-	driverRef *wrappedDriver
 }
 
 type wrappedTx struct {
@@ -151,32 +144,6 @@ func (d wrappedDriver) Open(name string) (driver.Conn, error) {
 	return wrappedConn{opts: d.opts, parent: conn}, nil
 }
 
-func (d wrappedDriver) OpenConnector(name string) (driver.Connector, error) {
-	driver, ok := d.parent.(driver.DriverContext)
-	if !ok {
-		panic("go version does not support DriverContext")
-	}
-	conn, err := driver.OpenConnector(name)
-	if err != nil {
-		return nil, err
-	}
-
-	return wrappedConnector{parent: conn, driverRef: &d}, nil
-}
-
-func (c wrappedConnector) Connect(ctx context.Context) (driver.Conn, error) {
-	conn, err := c.parent.Connect(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return wrappedConn{opts: c.driverRef.opts, parent: conn}, nil
-}
-
-func (c wrappedConnector) Driver() driver.Driver {
-	return c.driverRef
-}
-
 func (c wrappedConn) Prepare(query string) (driver.Stmt, error) {
 	parent, err := c.parent.Prepare(query)
 	if err != nil {
@@ -184,15 +151,6 @@ func (c wrappedConn) Prepare(query string) (driver.Stmt, error) {
 	}
 
 	return wrappedStmt{opts: c.opts, query: query, parent: parent}, nil
-}
-
-func (c wrappedConn) ResetSession(ctx context.Context) error {
-	conn, ok := c.parent.(driver.SessionResetter)
-	if !ok {
-		return nil
-	}
-
-	return conn.ResetSession(ctx)
 }
 
 func (c wrappedConn) Close() error {
