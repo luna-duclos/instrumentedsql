@@ -13,6 +13,14 @@ type wrappedStmt struct {
 	parent driver.Stmt
 }
 
+// Compile time validation that our types implement the expected interfaces
+var (
+	_ driver.Stmt = wrappedStmt{}
+	_ driver.StmtExecContext = wrappedStmt{}
+	_ driver.StmtQueryContext = wrappedStmt{}
+	_ driver.ColumnConverter = wrappedStmt{}
+)
+
 func (s wrappedStmt) Close() (err error) {
 	if !s.hasOpExcluded(OpSQLStmtClose) {
 		span := s.GetSpan(s.ctx).NewChild(OpSQLStmtClose)
@@ -158,4 +166,12 @@ func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue)
 
 	s.ctx = ctx
 	return s.Query(dargs)
+}
+
+func (s wrappedStmt) ColumnConverter(idx int) driver.ValueConverter {
+	if converter, ok := s.parent.(driver.ColumnConverter); ok {
+		return converter.ColumnConverter(idx)
+	}
+
+	return driver.DefaultParameterConverter
 }

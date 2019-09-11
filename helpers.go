@@ -3,6 +3,7 @@ package instrumentedsql
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -55,4 +56,17 @@ func logQuery(ctx context.Context, opts opts, op, query string, err error, args 
 	}
 
 	opts.Log(ctx, op, keyvals...)
+}
+
+
+// namedValueToValue is a helper function copied from the database/sql package
+func namedValueToValue(named []driver.NamedValue) ([]driver.Value, error) {
+	dargs := make([]driver.Value, len(named))
+	for n, param := range named {
+		if len(param.Name) > 0 {
+			return nil, errors.New("sql: driver does not support the use of Named Parameters")
+		}
+		dargs[n] = param.Value
+	}
+	return dargs, nil
 }

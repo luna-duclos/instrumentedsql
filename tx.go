@@ -12,6 +12,11 @@ type wrappedTx struct {
 	parent driver.Tx
 }
 
+// Compile time validation that our types implement the expected interfaces
+var (
+	_ driver.Tx = wrappedTx{}
+)
+
 func (t wrappedTx) Commit() (err error) {
 	if !t.hasOpExcluded(OpSQLTxCommit) {
 		span := t.GetSpan(t.ctx).NewChild(OpSQLTxCommit)

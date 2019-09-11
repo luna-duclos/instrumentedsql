@@ -7,6 +7,11 @@ type wrappedDriver struct {
 	parent driver.Driver
 }
 
+// Compile time validation that our types implement the expected interfaces
+var (
+	_ driver.Driver = wrappedDriver{}
+)
+
 // WrapDriver will wrap the passed SQL driver and return a new sql driver that uses it and also logs and traces calls using the passed logger and tracer
 // The returned driver will still have to be registered with the sql package before it can be used.
 //

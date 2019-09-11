@@ -11,6 +11,18 @@ type wrappedConn struct {
 	parent driver.Conn
 }
 
+// Compile time validation that our types implement the expected interfaces
+var (
+	_ driver.Conn = wrappedConn{}
+	_ driver.ConnBeginTx = wrappedConn{}
+	_ driver.ConnPrepareContext = wrappedConn{}
+	_ driver.Execer = wrappedConn{}
+	_ driver.ExecerContext = wrappedConn{}
+	_ driver.Pinger = wrappedConn{}
+	_ driver.Queryer = wrappedConn{}
+	_ driver.QueryerContext = wrappedConn{}
+)
+
 func (c wrappedConn) Prepare(query string) (driver.Stmt, error) {
 	parent, err := c.parent.Prepare(query)
 	if err != nil {

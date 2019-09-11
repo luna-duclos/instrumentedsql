@@ -12,6 +12,11 @@ type wrappedConnector struct {
 	driverRef *wrappedDriver
 }
 
+var (
+	_ driver.Connector = wrappedConnector{}
+	_ driver.DriverContext = wrappedDriver{}
+)
+
 func (d wrappedDriver) OpenConnector(name string) (driver.Connector, error) {
 	driver, ok := d.parent.(driver.DriverContext)
 	if !ok {

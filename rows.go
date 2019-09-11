@@ -3,9 +3,19 @@ package instrumentedsql
 import (
 	"context"
 	"database/sql/driver"
-	"errors"
 	"io"
 	"time"
+)
+
+// Compile time validation that our types implement the expected interfaces
+var (
+	_ driver.Rows = wrappedRows{}
+	_ driver.RowsColumnTypeDatabaseTypeName // TODO
+	_ driver.RowsColumnTypeLength // TODO
+	_ driver.RowsColumnTypeNullable // TODO
+	_ driver.RowsColumnTypePrecisionScale // TODO
+	_ driver.RowsColumnTypeScanType // TODO
+	_ driver.RowsNextResultSet // TODO
 )
 
 type wrappedRows struct {
@@ -40,17 +50,4 @@ func (r wrappedRows) Next(dest []driver.Value) (err error) {
 	}()
 
 	return r.parent.Next(dest)
-}
-
-
-// namedValueToValue is a helper function copied from the database/sql package
-func namedValueToValue(named []driver.NamedValue) ([]driver.Value, error) {
-	dargs := make([]driver.Value, len(named))
-	for n, param := range named {
-		if len(param.Name) > 0 {
-			return nil, errors.New("sql: driver does not support the use of Named Parameters")
-		}
-		dargs[n] = param.Value
-	}
-	return dargs, nil
 }
