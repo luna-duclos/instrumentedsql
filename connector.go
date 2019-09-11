@@ -15,7 +15,10 @@ type wrappedConnector struct {
 func (d wrappedDriver) OpenConnector(name string) (driver.Connector, error) {
 	driver, ok := d.parent.(driver.DriverContext)
 	if !ok {
-		panic("go version does not support DriverContext")
+		return wrappedConnector{
+			parent:    dsnConnector{dsn: name, driver: &d},
+			driverRef: &d,
+		}, nil
 	}
 	conn, err := driver.OpenConnector(name)
 	if err != nil {
@@ -45,4 +48,19 @@ func (c wrappedConn) ResetSession(ctx context.Context) error {
 	}
 
 	return conn.ResetSession(ctx)
+}
+
+// dsnConnector is a fallback connector placed in position of wrappedConnector.parent
+// when given Driver does not comply with DriverContext interface.
+type dsnConnector struct {
+	dsn    string
+	driver driver.Driver
+}
+
+func (t dsnConnector) Connect(_ context.Context) (driver.Conn, error) {
+	return t.driver.Open(t.dsn)
+}
+
+func (t dsnConnector) Driver() driver.Driver {
+	return t.driver
 }
