@@ -1,5 +1,7 @@
 module github.com/luna-duclos/instrumentedsql
 
+go 1.11
+
 require (
 	cloud.google.com/go v0.45.1
 	cloud.google.com/go/pubsub v1.0.1 // indirect

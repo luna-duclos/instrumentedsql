@@ -9,8 +9,8 @@ Please see the [documentation](https://godoc.org/github.com/luna-duclos/instrume
 
 ## Go version support
 
-The aim is to support all versions of go starting at 1.9, when the various context methods we require to function were introduced
-Go 1.8 is unfortunately not supported due to lack of support in google's tracing package, though it can probably be made to work.
+The aim is to support all versions of Go starting at 1.9, when the various context methods we require to function were introduced
+Go 1.8 is unfortunately not supported due to lack of support in Google's tracing package, though it can probably be made to work.
 
 The build_all.sh script uses GVM to load every version of go and verify that the library builds and passes its tests.
 

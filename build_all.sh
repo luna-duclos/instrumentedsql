@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "This script uses GVM to build and test this package on each major version of Go it supports"
-echo "Please ensure GVM is installed and you have a version of every major go release installed as well"
+echo "Please ensure GVM is installed and you have a version of every major Go release installed as well"
 source ~/.gvm/scripts/gvm
 
 set -e
