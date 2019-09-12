@@ -39,7 +39,7 @@ func TestConnectorWithDriverContext(t *testing.T) {
 
 			wc, ok := conn.(wrappedConnector)
 			if !ok {
-				t.Fatal("expected wrapped OpenConnector to return wrappedConnetor instance")
+				t.Fatal("expected wrapped OpenConnector to return wrappedConnector instance")
 			}
 
 			_, ok = wc.parent.(*connMock)
@@ -59,7 +59,7 @@ func TestConnectorWithDriver(t *testing.T) {
 
 	wc, ok := conn.(wrappedConnector)
 	if !ok {
-		t.Fatal("expected wrapped OpenConnector to return wrappedConnetor instance")
+		t.Fatal("expected wrapped OpenConnector to return wrappedConnector instance")
 	}
 
 	_, ok = wc.parent.(dsnConnector)
