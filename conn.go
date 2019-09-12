@@ -144,12 +144,11 @@ func (c wrappedConn) ExecContext(ctx context.Context, query string, args []drive
 	}
 
 	select {
-	default:
 	case <-ctx.Done():
 		return nil, ctx.Err()
+	default:
+		return c.Exec(query, dargs)
 	}
-
-	return c.Exec(query, dargs)
 }
 
 func (c wrappedConn) Ping(ctx context.Context) (err error) {
