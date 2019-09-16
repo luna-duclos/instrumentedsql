@@ -12,21 +12,9 @@ type wrappedConnector struct {
 	driverRef *wrappedDriver
 }
 
-func (d wrappedDriver) OpenConnector(name string) (driver.Connector, error) {
-	driver, ok := d.parent.(driver.DriverContext)
-	if !ok {
-		return wrappedConnector{
-			parent:    dsnConnector{dsn: name, driver: &d},
-			driverRef: &d,
-		}, nil
-	}
-	conn, err := driver.OpenConnector(name)
-	if err != nil {
-		return nil, err
-	}
-
-	return wrappedConnector{parent: conn, driverRef: &d}, nil
-}
+var (
+	_ driver.Connector = wrappedConnector{}
+)
 
 func (c wrappedConnector) Connect(ctx context.Context) (driver.Conn, error) {
 	conn, err := c.parent.Connect(ctx)
@@ -39,15 +27,6 @@ func (c wrappedConnector) Connect(ctx context.Context) (driver.Conn, error) {
 
 func (c wrappedConnector) Driver() driver.Driver {
 	return c.driverRef
-}
-
-func (c wrappedConn) ResetSession(ctx context.Context) error {
-	conn, ok := c.parent.(driver.SessionResetter)
-	if !ok {
-		return nil
-	}
-
-	return conn.ResetSession(ctx)
 }
 
 // dsnConnector is a fallback connector placed in position of wrappedConnector.parent
