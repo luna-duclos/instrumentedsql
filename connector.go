@@ -5,9 +5,11 @@ package instrumentedsql
 import (
 	"context"
 	"database/sql/driver"
+	"time"
 )
 
 type wrappedConnector struct {
+	opts
 	parent    driver.Connector
 	driverRef *wrappedDriver
 }
@@ -16,8 +18,19 @@ var (
 	_ driver.Connector = wrappedConnector{}
 )
 
-func (c wrappedConnector) Connect(ctx context.Context) (driver.Conn, error) {
-	conn, err := c.parent.Connect(ctx)
+func (c wrappedConnector) Connect(ctx context.Context) (conn driver.Conn, err error) {
+	if !c.hasOpExcluded(OpSQLConnectorConnect) {
+		span := c.GetSpan(ctx).NewChild(OpSQLConnectorConnect)
+		span.SetLabel("component", "database/sql")
+		start := time.Now()
+		defer func() {
+			span.SetError(err)
+			span.Finish()
+			c.Log(ctx, OpSQLConnectorConnect, "err", err, "duration", time.Since(start))
+		}()
+	}
+
+	conn, err = c.parent.Connect(ctx)
 	if err != nil {
 		return nil, err
 	}
