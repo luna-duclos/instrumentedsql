@@ -125,7 +125,12 @@ func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) 
 		return nil, ctx.Err()
 	}
 
-	return s.Exec(dargs)
+	res, err = s.parent.Exec(dargs)
+	if err != nil {
+		return nil, err
+	}
+
+	return wrappedResult{opts: s.opts, ctx: ctx, parent: res}, nil
 }
 
 func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (rows driver.Rows, err error) {
@@ -164,8 +169,12 @@ func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue)
 		return nil, ctx.Err()
 	}
 
-	s.ctx = ctx
-	return s.Query(dargs)
+	rows, err = s.parent.Query(dargs)
+	if err != nil {
+		return nil, err
+	}
+
+	return wrappedRows{opts: s.opts, ctx: ctx, parent: rows}, nil
 }
 
 func (s wrappedStmt) ColumnConverter(idx int) driver.ValueConverter {
