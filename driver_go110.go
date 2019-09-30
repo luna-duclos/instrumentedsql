@@ -11,7 +11,7 @@ func (d wrappedDriver) OpenConnector(name string) (driver.Connector, error) {
 	if !ok {
 		return wrappedConnector{
 			opts:      d.opts,
-			parent:    dsnConnector{dsn: name, driver: &d},
+			parent:    dsnConnector{dsn: name, driver: d.parent},
 			driverRef: &d,
 		}, nil
 	}
