@@ -1,20 +1,34 @@
-package opentracing
+package opentracing_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"testing"
 
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/go-sql-driver/mysql"
+	"github.com/luna-duclos/instrumentedsql"
+	"github.com/luna-duclos/instrumentedsql/opentracing"
+	opentracinggo "github.com/opentracing/opentracing-go"
 )
 
+// WrapDriverOpentracing demonstrates how to call wrapDriver and register a new driver.
+// This example uses MySQL and opentracing to illustrate this
+func ExampleWrapDriver_opentracing() {
+	sql.Register("instrumented-mysql", instrumentedsql.WrapDriver(mysql.MySQLDriver{}, instrumentedsql.WithTracer(opentracing.NewTracer(false))))
+	db, err := sql.Open("instrumented-mysql", "connString")
+
+	// Proceed to handle connection errors and use the database as usual
+	_, _ = db, err
+}
+
 func TestSpanWithParent(t *testing.T) {
-	ctx := opentracing.ContextWithSpan(
+	ctx := opentracinggo.ContextWithSpan(
 		context.Background(),
-		opentracing.GlobalTracer().StartSpan("some_span"),
+		opentracinggo.GlobalTracer().StartSpan("some_span"),
 	)
 
-	tr := NewTracer(true)
+	tr := opentracing.NewTracer(true)
 	span := tr.GetSpan(ctx)
 	span.SetLabel("key", "value")
 
@@ -28,7 +42,7 @@ func TestSpanWithParent(t *testing.T) {
 
 func TestSpanWithoutParent(t *testing.T) {
 	ctx := context.Background() // Background has no span
-	tr := NewTracer(true)
+	tr := opentracing.NewTracer(true)
 	span := tr.GetSpan(ctx)
 	span.SetLabel("key", "value")
 
