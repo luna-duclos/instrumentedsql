@@ -11,7 +11,7 @@ import (
 type wrappedConnector struct {
 	opts
 	parent    driver.Connector
-	driverRef *wrappedDriver
+	driverRef *WrappedDriver
 }
 
 var (
