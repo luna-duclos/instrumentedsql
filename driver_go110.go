@@ -4,9 +4,9 @@ package instrumentedsql
 
 import "database/sql/driver"
 
-var _ driver.DriverContext = wrappedDriver{}
+var _ driver.DriverContext = WrappedDriver{}
 
-func (d wrappedDriver) OpenConnector(name string) (driver.Connector, error) {
+func (d WrappedDriver) OpenConnector(name string) (driver.Connector, error) {
 	driver, ok := d.parent.(driver.DriverContext)
 	if !ok {
 		return wrappedConnector{
