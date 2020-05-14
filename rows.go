@@ -9,13 +9,13 @@ import (
 
 // Compile time validation that our types implement the expected interfaces
 var (
-	_ driver.Rows = wrappedRows{}
+	_ driver.Rows                           = wrappedRows{}
 	_ driver.RowsColumnTypeDatabaseTypeName // TODO
-	_ driver.RowsColumnTypeLength // TODO
-	_ driver.RowsColumnTypeNullable // TODO
-	_ driver.RowsColumnTypePrecisionScale // TODO
-	_ driver.RowsColumnTypeScanType // TODO
-	_ driver.RowsNextResultSet // TODO
+	_ driver.RowsColumnTypeLength           // TODO
+	_ driver.RowsColumnTypeNullable         // TODO
+	_ driver.RowsColumnTypePrecisionScale   // TODO
+	_ driver.RowsColumnTypeScanType         // TODO
+	_ driver.RowsNextResultSet              // TODO
 )
 
 type wrappedRows struct {
@@ -42,12 +42,12 @@ func (r wrappedRows) Next(dest []driver.Value) (err error) {
 			}
 			span.Finish()
 		}()
-	}
 
-	start := time.Now()
-	defer func() {
-		r.Log(r.ctx, OpSQLRowsNext, "err", err, "duration", time.Since(start))
-	}()
+		start := time.Now()
+		defer func() {
+			r.Log(r.ctx, OpSQLRowsNext, "err", err, "duration", time.Since(start))
+		}()
+	}
 
 	return r.parent.Next(dest)
 }
