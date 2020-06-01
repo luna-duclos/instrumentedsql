@@ -1,4 +1,4 @@
-package instrumentedsql_test
+package examples_test
 
 import (
 	"context"
