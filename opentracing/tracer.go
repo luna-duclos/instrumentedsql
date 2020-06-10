@@ -41,7 +41,7 @@ func (s span) NewChild(name string) instrumentedsql.Span {
 		return s
 	}
 
-	return span{parent: opentracing.StartSpan(name, opentracing.ChildOf(s.parent.Context())), tracer: s.tracer}
+	return span{parent: s.parent.Tracer().StartSpan(name, opentracing.ChildOf(s.parent.Context())), tracer: s.tracer}
 }
 
 func (s span) SetLabel(k, v string) {
