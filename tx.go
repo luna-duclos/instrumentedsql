@@ -20,7 +20,7 @@ var (
 func (t wrappedTx) Commit() (err error) {
 	if !t.hasOpExcluded(OpSQLTxCommit) {
 		span := t.GetSpan(t.ctx).NewChild(OpSQLTxCommit)
-		span.SetLabel("component", "database/sql")
+		t.setDefaultLabels(span)
 		start := time.Now()
 		defer func() {
 			span.SetError(err)
@@ -35,7 +35,7 @@ func (t wrappedTx) Commit() (err error) {
 func (t wrappedTx) Rollback() (err error) {
 	if !t.hasOpExcluded(OpSQLTxRollback) {
 		span := t.GetSpan(t.ctx).NewChild(OpSQLTxRollback)
-		span.SetLabel("component", "database/sql")
+		t.setDefaultLabels(span)
 		start := time.Now()
 		defer func() {
 			span.SetError(err)

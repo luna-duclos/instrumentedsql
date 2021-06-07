@@ -23,7 +23,7 @@ var (
 func (s wrappedStmt) Close() (err error) {
 	if !s.hasOpExcluded(OpSQLStmtClose) {
 		span := s.GetSpan(s.ctx).NewChild(OpSQLStmtClose)
-		span.SetLabel("component", "database/sql")
+		s.setDefaultLabels(span)
 		start := time.Now()
 		defer func() {
 			span.SetError(err)
@@ -42,10 +42,10 @@ func (s wrappedStmt) NumInput() int {
 func (s wrappedStmt) Exec(args []driver.Value) (res driver.Result, err error) {
 	if !s.hasOpExcluded(OpSQLStmtExec) {
 		span := s.GetSpan(s.ctx).NewChild(OpSQLStmtExec)
-		span.SetLabel("component", "database/sql")
-		span.SetLabel("query", s.query)
+		s.setDefaultLabels(span)
+		span.SetLabel(DBStatement, s.query)
 		if !s.OmitArgs {
-			span.SetLabel("args", formatArgs(args))
+			span.SetLabel(DBStatementArgs, formatArgs(args))
 		}
 		start := time.Now()
 		defer func() {
@@ -66,10 +66,10 @@ func (s wrappedStmt) Exec(args []driver.Value) (res driver.Result, err error) {
 func (s wrappedStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 	if !s.hasOpExcluded(OpSQLStmtQuery) {
 		span := s.GetSpan(s.ctx).NewChild(OpSQLStmtQuery)
-		span.SetLabel("component", "database/sql")
-		span.SetLabel("query", s.query)
+		s.setDefaultLabels(span)
+		span.SetLabel(DBStatement, s.query)
 		if !s.OmitArgs {
-			span.SetLabel("args", formatArgs(args))
+			span.SetLabel(DBStatementArgs, formatArgs(args))
 		}
 		start := time.Now()
 		defer func() {
@@ -90,10 +90,10 @@ func (s wrappedStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (res driver.Result, err error) {
 	if !s.hasOpExcluded(OpSQLStmtExec) {
 		span := s.GetSpan(ctx).NewChild(OpSQLStmtExec)
-		span.SetLabel("component", "database/sql")
-		span.SetLabel("query", s.query)
+		s.setDefaultLabels(span)
+		span.SetLabel(DBStatement, s.query)
 		if !s.OmitArgs {
-			span.SetLabel("args", formatArgs(args))
+			span.SetLabel(DBStatementArgs, formatArgs(args))
 		}
 		start := time.Now()
 		defer func() {
@@ -135,10 +135,10 @@ func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) 
 func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (rows driver.Rows, err error) {
 	if !s.hasOpExcluded(OpSQLStmtQuery) {
 		span := s.GetSpan(ctx).NewChild(OpSQLStmtQuery)
-		span.SetLabel("component", "database/sql")
-		span.SetLabel("query", s.query)
+		s.setDefaultLabels(span)
+		span.SetLabel(DBStatement, s.query)
 		if !s.OmitArgs {
-			span.SetLabel("args", formatArgs(args))
+			span.SetLabel(DBStatementArgs, formatArgs(args))
 		}
 		start := time.Now()
 		defer func() {

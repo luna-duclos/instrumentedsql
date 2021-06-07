@@ -15,7 +15,7 @@ type wrappedResult struct {
 func (r wrappedResult) LastInsertId() (id int64, err error) {
 	if !r.hasOpExcluded(OpSQLResLastInsertID) {
 		span := r.GetSpan(r.ctx).NewChild(OpSQLResLastInsertID)
-		span.SetLabel("component", "database/sql")
+		r.setDefaultLabels(span)
 		start := time.Now()
 		defer func() {
 			span.SetError(err)
@@ -30,7 +30,7 @@ func (r wrappedResult) LastInsertId() (id int64, err error) {
 func (r wrappedResult) RowsAffected() (num int64, err error) {
 	if !r.hasOpExcluded(OpSQLResRowsAffected) {
 		span := r.GetSpan(r.ctx).NewChild(OpSQLResRowsAffected)
-		span.SetLabel("component", "database/sql")
+		r.setDefaultLabels(span)
 		start := time.Now()
 		defer func() {
 			span.SetError(err)

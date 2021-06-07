@@ -48,7 +48,7 @@ func (c wrappedConn) Begin() (driver.Tx, error) {
 func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx driver.Tx, err error) {
 	if !c.hasOpExcluded(OpSQLTxBegin) {
 		span := c.GetSpan(ctx).NewChild(OpSQLTxBegin)
-		span.SetLabel("component", "database/sql")
+		c.setDefaultLabels(span)
 		start := time.Now()
 		defer func() {
 			span.SetError(err)
@@ -77,7 +77,7 @@ func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx dri
 func (c wrappedConn) PrepareContext(ctx context.Context, query string) (stmt driver.Stmt, err error) {
 	if !c.hasOpExcluded(OpSQLPrepare) {
 		span := c.GetSpan(ctx).NewChild(OpSQLPrepare)
-		span.SetLabel("component", "database/sql")
+		c.setDefaultLabels(span)
 		start := time.Now()
 		defer func() {
 			span.SetError(err)
@@ -114,10 +114,10 @@ func (c wrappedConn) Exec(query string, args []driver.Value) (driver.Result, err
 func (c wrappedConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (r driver.Result, err error) {
 	if !c.hasOpExcluded(OpSQLConnExec) {
 		span := c.GetSpan(ctx).NewChild(OpSQLConnExec)
-		span.SetLabel("component", "database/sql")
-		span.SetLabel("query", query)
+		c.setDefaultLabels(span)
+		span.SetLabel(DBStatement, query)
 		if !c.OmitArgs {
-			span.SetLabel("args", formatArgs(args))
+			span.SetLabel(DBStatementArgs, formatArgs(args))
 		}
 		start := time.Now()
 		defer func() {
@@ -155,7 +155,7 @@ func (c wrappedConn) Ping(ctx context.Context) (err error) {
 	if pinger, ok := c.parent.(driver.Pinger); ok {
 		if !c.hasOpExcluded(OpSQLPing) {
 			span := c.GetSpan(ctx).NewChild(OpSQLPing)
-			span.SetLabel("component", "database/sql")
+			c.setDefaultLabels(span)
 			start := time.Now()
 			defer func() {
 				span.SetError(err)
@@ -195,10 +195,10 @@ func (c wrappedConn) QueryContext(ctx context.Context, query string, args []driv
 
 	if !c.hasOpExcluded(OpSQLConnQuery) {
 		span := c.GetSpan(ctx).NewChild(OpSQLConnQuery)
-		span.SetLabel("component", "database/sql")
-		span.SetLabel("query", query)
+		c.setDefaultLabels(span)
+		span.SetLabel(DBStatement, query)
 		if !c.OmitArgs {
-			span.SetLabel("args", formatArgs(args))
+			span.SetLabel(DBStatementArgs, formatArgs(args))
 		}
 		start := time.Now()
 		defer func() {

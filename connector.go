@@ -21,7 +21,7 @@ var (
 func (c wrappedConnector) Connect(ctx context.Context) (conn driver.Conn, err error) {
 	if !c.hasOpExcluded(OpSQLConnectorConnect) {
 		span := c.GetSpan(ctx).NewChild(OpSQLConnectorConnect)
-		span.SetLabel("component", "database/sql")
+		c.setDefaultLabels(span)
 		start := time.Now()
 		defer func() {
 			span.SetError(err)

@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	labelQuery = "query"
+	labelQuery = "db.statement"
 )
 
 type tracer struct{}
