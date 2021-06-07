@@ -33,6 +33,12 @@ func WrapDriver(driver driver.Driver, opts ...Opt) WrappedDriver {
 	if d.Tracer == nil {
 		d.Tracer = nullTracer{}
 	}
+	if len(d.ComponentName) == 0 {
+		d.ComponentName = "luna-duclos" // alternatively the old "database/sql"
+	}
+	if len(d.DBInstance) == 0 {
+		d.DBInstance = "unknown"
+	}
 
 	return d
 }

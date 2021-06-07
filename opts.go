@@ -3,8 +3,10 @@ package instrumentedsql
 type opts struct {
 	Logger
 	Tracer
-	OpsExcluded map[string]struct{}
-	OmitArgs    bool
+	OpsExcluded   map[string]struct{}
+	OmitArgs      bool
+	ComponentName string
+	DBInstance    string
 }
 
 // Opt is a functional option type for the wrapped driver
@@ -13,6 +15,13 @@ type Opt func(*opts)
 func (o *opts) hasOpExcluded(op string) bool {
 	_, ok := o.OpsExcluded[op]
 	return ok
+}
+
+func (o *opts) setDefaultLabels(span Span) {
+	span.SetLabel(SpanKind, "client")
+	span.SetLabel(Component, o.ComponentName)
+	span.SetLabel(DBType, "sql")
+	span.SetLabel(DBInstance, o.DBInstance)
 }
 
 // WithLogger sets the logger of the wrapped driver to the provided logger
@@ -51,5 +60,21 @@ func WithOmitArgs() Opt {
 func WithIncludeArgs() Opt {
 	return func(o *opts) {
 		o.OmitArgs = false
+	}
+}
+
+// WithComponentName allows setting the component name which are included in logging and tracing
+// Default is "luna-duclos"
+func WithComponentName(componentName string) Opt {
+	return func(o *opts) {
+		o.ComponentName = componentName
+	}
+}
+
+// WithDBInstance sets the DB name which is included in logging and tracing
+// Default is "unknown"
+func WithDBInstance(dbName string) Opt {
+	return func(o *opts) {
+		o.DBInstance = dbName
 	}
 }

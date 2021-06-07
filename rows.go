@@ -35,7 +35,7 @@ func (r wrappedRows) Close() error {
 func (r wrappedRows) Next(dest []driver.Value) (err error) {
 	if !r.hasOpExcluded(OpSQLRowsNext) {
 		span := r.GetSpan(r.ctx).NewChild(OpSQLRowsNext)
-		span.SetLabel("component", "database/sql")
+		r.setDefaultLabels(span)
 		defer func() {
 			if err != io.EOF {
 				span.SetError(err)
