@@ -29,7 +29,7 @@ func (c wrappedConn) Prepare(query string) (driver.Stmt, error) {
 		return nil, err
 	}
 
-	return wrappedStmt{opts: c.opts, query: query, parent: parent}, nil
+	return wrappedStmt{opts: c.opts, ctx: context.TODO(), query: query, parent: parent}, nil
 }
 
 func (c wrappedConn) Close() error {
@@ -42,7 +42,7 @@ func (c wrappedConn) Begin() (driver.Tx, error) {
 		return nil, err
 	}
 
-	return wrappedTx{opts: c.opts, parent: tx}, nil
+	return wrappedTx{opts: c.opts, ctx: context.TODO(), parent: tx}, nil
 }
 
 func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx driver.Tx, err error) {
