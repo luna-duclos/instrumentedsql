@@ -105,7 +105,7 @@ func (c wrappedConn) Exec(query string, args []driver.Value) (driver.Result, err
 			return nil, err
 		}
 
-		return wrappedResult{opts: c.opts, parent: res}, nil
+		return wrappedResult{opts: c.opts, ctx: context.TODO(), parent: res}, nil
 	}
 
 	return nil, driver.ErrSkip
