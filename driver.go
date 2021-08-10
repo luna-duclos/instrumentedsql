@@ -14,30 +14,20 @@ var (
 	_ driver.Driver = WrappedDriver{}
 )
 
-// WrapDriver will wrap the passed SQL driver and return a new sql driver that uses it and also logs and traces calls using the passed logger and tracer
-// The returned driver will still have to be registered with the sql package before it can be used.
+// WrapDriver will wrap the passed SQL driver and return a new sql driver that uses it and also logs
+// and traces calls using the passed logger and tracer. The returned driver will still have to be
+// registered with the sql package before it can be used.
 //
-// Important note: Seeing as the context passed into the various instrumentation calls this package calls,
-// Any call without a context passed will not be instrumented. Please be sure to use the ___Context() and BeginTx() function calls added in Go 1.8
-// instead of the older calls which do not accept a context.
+// Important note: Seeing as the context passed into the various instrumentation calls this package
+// calls. Any call without a context passed will not be instrumented. Please be sure to use the
+// ___Context() and BeginTx() function calls added in Go 1.8 instead of the older calls which do not
+// accept a context.
 func WrapDriver(driver driver.Driver, opts ...Opt) WrappedDriver {
 	d := WrappedDriver{parent: driver}
+	d.setDefaultOptions()
 
 	for _, opt := range opts {
 		opt(&d.opts)
-	}
-
-	if d.Logger == nil {
-		d.Logger = nullLogger{}
-	}
-	if d.Tracer == nil {
-		d.Tracer = nullTracer{}
-	}
-	if len(d.ComponentName) == 0 {
-		d.ComponentName = "luna-duclos" // alternatively the old "database/sql"
-	}
-	if len(d.DBInstance) == 0 {
-		d.DBInstance = "unknown"
 	}
 
 	return d
