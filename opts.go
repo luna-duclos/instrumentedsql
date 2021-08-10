@@ -9,8 +9,12 @@ type opts struct {
 	DBInstance    string
 }
 
-// Opt is a functional option type for the wrapped driver
-type Opt func(*opts)
+func (o *opts) setDefaultOptions() {
+	o.Logger = nullLogger{}
+	o.Tracer = nullTracer{}
+	o.ComponentName = "database/sql"
+	o.DBInstance = "unknown"
+}
 
 func (o *opts) hasOpExcluded(op string) bool {
 	_, ok := o.OpsExcluded[op]
@@ -23,6 +27,9 @@ func (o *opts) setDefaultLabels(span Span) {
 	span.SetLabel(DBType, "sql")
 	span.SetLabel(DBInstance, o.DBInstance)
 }
+
+// Opt is a functional option type for the wrapped driver
+type Opt func(*opts)
 
 // WithLogger sets the logger of the wrapped driver to the provided logger
 func WithLogger(l Logger) Opt {
@@ -64,7 +71,7 @@ func WithIncludeArgs() Opt {
 }
 
 // WithComponentName allows setting the component name which are included in logging and tracing
-// Default is "luna-duclos"
+// Default is "database/sql"
 func WithComponentName(componentName string) Opt {
 	return func(o *opts) {
 		o.ComponentName = componentName
