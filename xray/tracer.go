@@ -55,6 +55,8 @@ func (s span) SetLabel(k, v string) {
 	}
 
 	switch k {
+	// TODO: as soon as a new version of instrumentedsql is released
+		// labelQuery can be replaced by instrumentedsql.DBStatement
 	case labelQuery:
 		s.segment.GetSQL().SanitizedQuery = v
 	}
