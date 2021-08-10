@@ -7,13 +7,15 @@ type opts struct {
 	OmitArgs      bool
 	ComponentName string
 	DBInstance    string
+	DBUser        string
 }
 
-func (o *opts) setDefaultOptions() {
+func (o *opts) setDefaults() {
 	o.Logger = nullLogger{}
 	o.Tracer = nullTracer{}
 	o.ComponentName = "database/sql"
 	o.DBInstance = "unknown"
+	o.DBUser = "unknown"
 }
 
 func (o *opts) hasOpExcluded(op string) bool {
@@ -26,6 +28,7 @@ func (o *opts) setDefaultLabels(span Span) {
 	span.SetLabel(Component, o.ComponentName)
 	span.SetLabel(DBType, "sql")
 	span.SetLabel(DBInstance, o.DBInstance)
+	span.SetLabel(DBUser, o.DBUser)
 }
 
 // Opt is a functional option type for the wrapped driver
@@ -83,5 +86,13 @@ func WithComponentName(componentName string) Opt {
 func WithDBInstance(dbName string) Opt {
 	return func(o *opts) {
 		o.DBInstance = dbName
+	}
+}
+
+// WithDBUser sets the username used to access the database
+// Default is "unknown"
+func WithDBUser(userName string) Opt {
+	return func(o *opts) {
+		o.DBUser = userName
 	}
 }
