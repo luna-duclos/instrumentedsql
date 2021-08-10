@@ -1,6 +1,6 @@
 package instrumentedsql
 
-var (
+const (
 	Component       = "component"
 	DBInstance      = "db.instance"
 	DBStatement     = "db.statement"
