@@ -24,7 +24,7 @@ var (
 // accept a context.
 func WrapDriver(driver driver.Driver, opts ...Opt) WrappedDriver {
 	d := WrappedDriver{parent: driver}
-	d.setDefaultOptions()
+	d.setDefaults()
 
 	for _, opt := range opts {
 		opt(&d.opts)
