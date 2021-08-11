@@ -10,9 +10,10 @@ func (d WrappedDriver) OpenConnector(name string) (driver.Connector, error) {
 	driver, ok := d.parent.(driver.DriverContext)
 	if !ok {
 		return wrappedConnector{
-			opts:      d.opts,
-			parent:    dsnConnector{dsn: name, driver: d.parent},
-			driverRef: &d,
+			opts:             d.opts,
+			childSpanFactory: d.childSpanFactory,
+			parent:           dsnConnector{dsn: name, driver: d.parent},
+			driverRef:        &d,
 		}, nil
 	}
 	conn, err := driver.OpenConnector(name)
@@ -20,5 +21,10 @@ func (d WrappedDriver) OpenConnector(name string) (driver.Connector, error) {
 		return nil, err
 	}
 
-	return wrappedConnector{opts: d.opts, parent: conn, driverRef: &d}, nil
+	return wrappedConnector{
+		opts: d.opts,
+		childSpanFactory: d.childSpanFactory,
+		parent: conn,
+		driverRef: &d,
+	}, nil
 }

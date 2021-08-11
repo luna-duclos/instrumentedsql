@@ -1,11 +1,16 @@
 package instrumentedsql
 
-import "database/sql/driver"
+import (
+	"context"
+	"database/sql/driver"
+	"time"
+)
 
 // WrappedDriver wraps a driver and adds instrumentation.
 // Use WrapDriver to create a new WrappedDriver.
 type WrappedDriver struct {
 	opts
+	childSpanFactory
 	parent driver.Driver
 }
 
@@ -30,6 +35,8 @@ func WrapDriver(driver driver.Driver, opts ...Opt) WrappedDriver {
 		opt(&d.opts)
 	}
 
+	d.childSpanFactory = d
+
 	return d
 }
 
@@ -40,5 +47,90 @@ func (d WrappedDriver) Open(name string) (driver.Conn, error) {
 		return nil, err
 	}
 
-	return wrappedConn{opts: d.opts, parent: conn}, nil
+	return wrappedConn{opts: d.opts, childSpanFactory: d.childSpanFactory, parent: conn}, nil
 }
+
+func (d WrappedDriver) setDefaults() {
+	d.Logger = nullLogger{}
+	d.Tracer = nullTracer{}
+	d.omitArgs = true
+	d.componentName = "database/sql"
+	d.dbName = "unknown"
+	d.dbUser = "unknown"
+	d.dbSystem = "unknown"
+}
+
+type spanFinisherImpl struct {
+	opts
+	operation string
+	span      Span
+	query     *string
+	args      interface{}
+	start     time.Time
+}
+
+func (f *spanFinisherImpl) Finish(ctx context.Context, err error) {
+	f.span.SetError(err)
+	f.span.Finish()
+
+	keyvals := []interface{}{
+		"err", err,
+		"duration", time.Since(f.start),
+	}
+
+	if f.query != nil {
+		keyvals = append(keyvals, "query", f.query)
+	}
+
+	if !f.omitArgs && f.args != nil {
+		keyvals = append(keyvals, "args", formatArgs(f.args))
+	}
+
+	f.Log(ctx, f.operation, keyvals...)
+}
+
+func (d WrappedDriver) NewChildSpan(ctx context.Context, operation string) spanFinisher {
+	if !d.hasOpExcluded(operation) {
+		span := d.GetSpan(ctx).NewChild(operation)
+		span.SetComponent(d.componentName)
+		span.SetDBName(d.dbName)
+		span.SetDBUser(d.dbUser)
+		span.SetDBSystem(d.dbSystem)
+		return &spanFinisherImpl{opts: d.opts, operation: operation, span: span, start : time.Now()}
+	}
+	return nullSpanFinisher{}
+}
+
+func (d WrappedDriver) NewChildSpanWithQuery(ctx context.Context, operation string, query string, args interface{}) spanFinisher {
+	if !d.hasOpExcluded(operation) {
+		finisher := d.NewChildSpan(ctx, operation)
+		f, _ := finisher.(*spanFinisherImpl)
+		f.span.SetDBStatement(query)
+		if !d.omitArgs {
+			f.span.SetDBStatementArgs(formatArgs(args))
+		}
+
+		f.query = &query
+		f.args = args
+		return f
+	}
+	return nullSpanFinisher{}
+}
+
+type nullSpanFinisher struct{}
+func (f nullSpanFinisher) Finish(context.Context, error) {}
+
+type nullTracer struct{}
+func (nullTracer) GetSpan(context.Context) Span { return nullSpan{} }
+
+type nullSpan struct{}
+func (nullSpan) NewChild(string) Span { return nullSpan{} }
+func (nullSpan) SetLabel(k, v string) {}
+func (nullSpan) SetComponent(v string) {}
+func (nullSpan) SetDBName(v string) {}
+func (nullSpan) SetDBUser(v string) {}
+func (nullSpan) SetDBSystem(v string) {}
+func (nullSpan) SetDBStatement(v string) {}
+func (nullSpan) SetDBStatementArgs(v string) {}
+func (nullSpan) Finish() {}
+func (nullSpan) SetError(err error) {}

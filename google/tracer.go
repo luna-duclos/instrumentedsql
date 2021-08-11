@@ -43,6 +43,30 @@ func (s span) SetLabel(k, v string) {
 	s.parent.SetLabel(k, v)
 }
 
+func (s span) SetComponent(v string) {
+	s.SetLabel("component", v)
+}
+
+func (s span) SetDBName(v string) {
+	s.SetLabel("db.name", v)
+}
+
+func (s span) SetDBUser(v string) {
+	s.SetLabel("db.user", v)
+}
+
+func (s span) SetDBSystem(v string) {
+	s.SetLabel("db.system", v)
+}
+
+func (s span) SetDBStatement(v string) {
+	s.SetLabel("statement", v)
+}
+
+func (s span) SetDBStatementArgs(v string) {
+	s.SetLabel("args", v)
+}
+
 func (s span) SetError(err error) {
 	if err == nil || err == driver.ErrSkip {
 		return

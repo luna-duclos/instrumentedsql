@@ -11,23 +11,21 @@ type Tracer interface {
 type Span interface {
 	NewChild(string) Span
 	SetLabel(k, v string)
+	SetComponent(v string)
+	SetDBName(v string)
+	SetDBUser(v string)
+	SetDBSystem(v string)
+	SetDBStatement(v string)
+	SetDBStatementArgs(v string)
 	SetError(err error)
 	Finish()
 }
 
-type nullTracer struct{}
-type nullSpan struct{}
-
-func (nullTracer) GetSpan(ctx context.Context) Span {
-	return nullSpan{}
+type spanFinisher interface {
+	Finish(ctx context.Context, err error)
 }
 
-func (nullSpan) NewChild(string) Span {
-	return nullSpan{}
+type childSpanFactory interface {
+	NewChildSpan(ctx context.Context, operation string) spanFinisher
+	NewChildSpanWithQuery(ctx context.Context, operation string, query string, args interface{}) spanFinisher
 }
-
-func (nullSpan) SetLabel(k, v string) {}
-
-func (nullSpan) Finish() {}
-
-func (nullSpan) SetError(err error) {}

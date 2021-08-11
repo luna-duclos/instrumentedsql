@@ -3,32 +3,17 @@ package instrumentedsql
 type opts struct {
 	Logger
 	Tracer
-	OpsExcluded   map[string]struct{}
-	OmitArgs      bool
-	ComponentName string
-	DBInstance    string
-	DBUser        string
-}
-
-func (o *opts) setDefaults() {
-	o.Logger = nullLogger{}
-	o.Tracer = nullTracer{}
-	o.ComponentName = "database/sql"
-	o.DBInstance = "unknown"
-	o.DBUser = "unknown"
+	opsExcluded   map[string]struct{}
+	omitArgs      bool
+	componentName string
+	dbName   string
+	dbSystem string
+	dbUser   string
 }
 
 func (o *opts) hasOpExcluded(op string) bool {
-	_, ok := o.OpsExcluded[op]
+	_, ok := o.opsExcluded[op]
 	return ok
-}
-
-func (o *opts) setDefaultLabels(span Span) {
-	span.SetLabel(SpanKind, "client")
-	span.SetLabel(Component, o.ComponentName)
-	span.SetLabel(DBType, "sql")
-	span.SetLabel(DBInstance, o.DBInstance)
-	span.SetLabel(DBUser, o.DBUser)
 }
 
 // Opt is a functional option type for the wrapped driver
@@ -44,9 +29,9 @@ func WithLogger(l Logger) Opt {
 // WithOpsExcluded excludes some of OpSQL that are not required
 func WithOpsExcluded(ops ...string) Opt {
 	return func(o *opts) {
-		o.OpsExcluded = make(map[string]struct{})
+		o.opsExcluded = make(map[string]struct{})
 		for _, op := range ops {
-			o.OpsExcluded[op] = struct{}{}
+			o.opsExcluded[op] = struct{}{}
 		}
 	}
 }
@@ -58,18 +43,11 @@ func WithTracer(t Tracer) Opt {
 	}
 }
 
-// WithOmitArgs will make it so that query arguments are omitted from logging and tracing
-func WithOmitArgs() Opt {
-	return func(o *opts) {
-		o.OmitArgs = true
-	}
-}
-
 // WithIncludeArgs will make it so that query arguments are included in logging and tracing
-// This is the default, but can be used to override WithOmitArgs
+// Default is not to include the args (for security reasons)
 func WithIncludeArgs() Opt {
 	return func(o *opts) {
-		o.OmitArgs = false
+		o.omitArgs = false
 	}
 }
 
@@ -77,15 +55,15 @@ func WithIncludeArgs() Opt {
 // Default is "database/sql"
 func WithComponentName(componentName string) Opt {
 	return func(o *opts) {
-		o.ComponentName = componentName
+		o.componentName = componentName
 	}
 }
 
-// WithDBInstance sets the DB name which is included in logging and tracing
+// WithDBName sets the DB name which is included in logging and tracing
 // Default is "unknown"
-func WithDBInstance(dbName string) Opt {
+func WithDBName(dbName string) Opt {
 	return func(o *opts) {
-		o.DBInstance = dbName
+		o.dbName = dbName
 	}
 }
 
@@ -93,6 +71,14 @@ func WithDBInstance(dbName string) Opt {
 // Default is "unknown"
 func WithDBUser(userName string) Opt {
 	return func(o *opts) {
-		o.DBUser = userName
+		o.dbUser = userName
+	}
+}
+
+// WithDBSystem sets the db system used
+// Default is "unknown"
+func WithDBSystem(dbSystem string) Opt {
+	return func(o *opts) {
+		o.dbSystem = dbSystem
 	}
 }

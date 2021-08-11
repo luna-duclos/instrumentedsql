@@ -8,19 +8,20 @@ import (
 
 type wrappedConn struct {
 	opts
+	childSpanFactory
 	parent driver.Conn
 }
 
 // Compile time validation that our types implement the expected interfaces
 var (
-	_ driver.Conn = wrappedConn{}
-	_ driver.ConnBeginTx = wrappedConn{}
+	_ driver.Conn               = wrappedConn{}
+	_ driver.ConnBeginTx        = wrappedConn{}
 	_ driver.ConnPrepareContext = wrappedConn{}
-	_ driver.Execer = wrappedConn{}
-	_ driver.ExecerContext = wrappedConn{}
-	_ driver.Pinger = wrappedConn{}
-	_ driver.Queryer = wrappedConn{}
-	_ driver.QueryerContext = wrappedConn{}
+	_ driver.Execer             = wrappedConn{}
+	_ driver.ExecerContext      = wrappedConn{}
+	_ driver.Pinger             = wrappedConn{}
+	_ driver.Queryer            = wrappedConn{}
+	_ driver.QueryerContext     = wrappedConn{}
 )
 
 func (c wrappedConn) Prepare(query string) (driver.Stmt, error) {
@@ -29,7 +30,7 @@ func (c wrappedConn) Prepare(query string) (driver.Stmt, error) {
 		return nil, err
 	}
 
-	return wrappedStmt{opts: c.opts, ctx: context.TODO(), query: query, parent: parent}, nil
+	return wrappedStmt{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: context.TODO(), query: query, parent: parent}, nil
 }
 
 func (c wrappedConn) Close() error {
@@ -42,20 +43,14 @@ func (c wrappedConn) Begin() (driver.Tx, error) {
 		return nil, err
 	}
 
-	return wrappedTx{opts: c.opts, ctx: context.TODO(), parent: tx}, nil
+	return wrappedTx{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: context.TODO(), parent: tx}, nil
 }
 
 func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx driver.Tx, err error) {
-	if !c.hasOpExcluded(OpSQLTxBegin) {
-		span := c.GetSpan(ctx).NewChild(OpSQLTxBegin)
-		c.setDefaultLabels(span)
-		start := time.Now()
-		defer func() {
-			span.SetError(err)
-			span.Finish()
-			c.Log(ctx, OpSQLTxBegin, "err", err, "duration", time.Since(start))
-		}()
-	}
+	span := c.NewChildSpan(ctx, OpSQLTxBegin)
+	defer func() {
+		span.Finish(ctx, err)
+	}()
 
 	if connBeginTx, ok := c.parent.(driver.ConnBeginTx); ok {
 		tx, err = connBeginTx.BeginTx(ctx, opts)
@@ -63,7 +58,7 @@ func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx dri
 			return nil, err
 		}
 
-		return wrappedTx{opts: c.opts, ctx: ctx, parent: tx}, nil
+		return wrappedTx{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: ctx, parent: tx}, nil
 	}
 
 	tx, err = c.parent.Begin()
@@ -71,20 +66,14 @@ func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx dri
 		return nil, err
 	}
 
-	return wrappedTx{opts: c.opts, ctx: ctx, parent: tx}, nil
+	return wrappedTx{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: ctx, parent: tx}, nil
 }
 
 func (c wrappedConn) PrepareContext(ctx context.Context, query string) (stmt driver.Stmt, err error) {
-	if !c.hasOpExcluded(OpSQLPrepare) {
-		span := c.GetSpan(ctx).NewChild(OpSQLPrepare)
-		c.setDefaultLabels(span)
-		start := time.Now()
-		defer func() {
-			span.SetError(err)
-			span.Finish()
-			logQuery(ctx, c.opts, OpSQLPrepare, query, err, nil, start)
-		}()
-	}
+	span := c.NewChildSpanWithQuery(ctx, OpSQLPrepare, query, nil)
+	defer func() {
+		span.Finish(ctx, err)
+	}()
 
 	if connPrepareCtx, ok := c.parent.(driver.ConnPrepareContext); ok {
 		stmt, err := connPrepareCtx.PrepareContext(ctx, query)
@@ -92,7 +81,7 @@ func (c wrappedConn) PrepareContext(ctx context.Context, query string) (stmt dri
 			return nil, err
 		}
 
-		return wrappedStmt{opts: c.opts, ctx: ctx, query: query, parent: stmt}, nil
+		return wrappedStmt{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: ctx, query: query, parent: stmt}, nil
 	}
 
 	return c.Prepare(query)
@@ -105,28 +94,17 @@ func (c wrappedConn) Exec(query string, args []driver.Value) (driver.Result, err
 			return nil, err
 		}
 
-		return wrappedResult{opts: c.opts, ctx: context.TODO(), parent: res}, nil
+		return wrappedResult{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: context.TODO(), parent: res}, nil
 	}
 
 	return nil, driver.ErrSkip
 }
 
 func (c wrappedConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (r driver.Result, err error) {
-	if !c.hasOpExcluded(OpSQLConnExec) {
-		span := c.GetSpan(ctx).NewChild(OpSQLConnExec)
-		c.setDefaultLabels(span)
-		span.SetLabel(DBStatement, query)
-		if !c.OmitArgs {
-			span.SetLabel(DBStatementArgs, formatArgs(args))
-		}
-		start := time.Now()
-		defer func() {
-			span.SetError(err)
-			span.Finish()
-
-			logQuery(ctx, c.opts, OpSQLConnExec, query, err, args, start)
-		}()
-	}
+	span := c.NewChildSpanWithQuery(ctx, OpSQLConnExec, query, args)
+	defer func() {
+		span.Finish(ctx, err)
+	}()
 
 	if execContext, ok := c.parent.(driver.ExecerContext); ok {
 		res, err := execContext.ExecContext(ctx, query, args)
@@ -134,7 +112,7 @@ func (c wrappedConn) ExecContext(ctx context.Context, query string, args []drive
 			return nil, err
 		}
 
-		return wrappedResult{opts: c.opts, ctx: ctx, parent: res}, nil
+		return wrappedResult{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: ctx, parent: res}, nil
 	}
 
 	// Fallback implementation
@@ -153,16 +131,10 @@ func (c wrappedConn) ExecContext(ctx context.Context, query string, args []drive
 
 func (c wrappedConn) Ping(ctx context.Context) (err error) {
 	if pinger, ok := c.parent.(driver.Pinger); ok {
-		if !c.hasOpExcluded(OpSQLPing) {
-			span := c.GetSpan(ctx).NewChild(OpSQLPing)
-			c.setDefaultLabels(span)
-			start := time.Now()
-			defer func() {
-				span.SetError(err)
-				span.Finish()
-				c.Log(ctx, OpSQLPing, "err", err, "duration", time.Since(start))
-			}()
-		}
+		span := c.NewChildSpan(ctx, OpSQLPing)
+		defer func() {
+			span.Finish(ctx, err)
+		}()
 
 		return pinger.Ping(ctx)
 	}
@@ -179,7 +151,7 @@ func (c wrappedConn) Query(query string, args []driver.Value) (driver.Rows, erro
 			return nil, err
 		}
 
-		return wrappedRows{opts: c.opts, parent: rows}, nil
+		return wrappedRows{opts: c.opts, childSpanFactory: c.childSpanFactory, parent: rows}, nil
 	}
 
 	return nil, driver.ErrSkip
@@ -193,20 +165,10 @@ func (c wrappedConn) QueryContext(ctx context.Context, query string, args []driv
 		return nil, driver.ErrSkip
 	}
 
-	if !c.hasOpExcluded(OpSQLConnQuery) {
-		span := c.GetSpan(ctx).NewChild(OpSQLConnQuery)
-		c.setDefaultLabels(span)
-		span.SetLabel(DBStatement, query)
-		if !c.OmitArgs {
-			span.SetLabel(DBStatementArgs, formatArgs(args))
-		}
-		start := time.Now()
-		defer func() {
-			span.SetError(err)
-			span.Finish()
-			logQuery(ctx, c.opts, OpSQLConnQuery, query, err, args, start)
-		}()
-	}
+	span := c.NewChildSpanWithQuery(ctx, OpSQLConnQuery, query, args)
+	defer func() {
+		span.Finish(ctx, err)
+	}()
 
 	if queryerContext, ok := c.parent.(driver.QueryerContext); ok {
 		rows, err := queryerContext.QueryContext(ctx, query, args)
@@ -214,7 +176,7 @@ func (c wrappedConn) QueryContext(ctx context.Context, query string, args []driv
 			return nil, err
 		}
 
-		return wrappedRows{opts: c.opts, ctx: ctx, parent: rows}, nil
+		return wrappedRows{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: ctx, parent: rows}, nil
 	}
 
 	dargs, err := namedValueToValue(args)

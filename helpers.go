@@ -1,13 +1,11 @@
 package instrumentedsql
 
 import (
-	"context"
 	"database/sql/driver"
 	"errors"
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 )
 
 func formatArgs(args interface{}) string {
@@ -43,21 +41,6 @@ func formatArg(arg interface{}) string {
 
 	return strArg
 }
-
-func logQuery(ctx context.Context, opts opts, op, query string, err error, args interface{}, since time.Time) {
-	keyvals := []interface{}{
-		"query", query,
-		"err", err,
-		"duration", time.Since(since),
-	}
-
-	if !opts.OmitArgs && args != nil {
-		keyvals = append(keyvals, "args", formatArgs(args))
-	}
-
-	opts.Log(ctx, op, keyvals...)
-}
-
 
 // namedValueToValue is a helper function copied from the database/sql package
 func namedValueToValue(named []driver.NamedValue) ([]driver.Value, error) {

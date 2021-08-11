@@ -3,11 +3,11 @@ package instrumentedsql
 import (
 	"context"
 	"database/sql/driver"
-	"time"
 )
 
 type wrappedTx struct {
 	opts
+	childSpanFactory
 	ctx    context.Context
 	parent driver.Tx
 }
@@ -18,31 +18,19 @@ var (
 )
 
 func (t wrappedTx) Commit() (err error) {
-	if !t.hasOpExcluded(OpSQLTxCommit) {
-		span := t.GetSpan(t.ctx).NewChild(OpSQLTxCommit)
-		t.setDefaultLabels(span)
-		start := time.Now()
-		defer func() {
-			span.SetError(err)
-			span.Finish()
-			t.Log(t.ctx, OpSQLTxCommit, "err", err, "duration", time.Since(start))
-		}()
-	}
+	span := t.NewChildSpan(t.ctx, OpSQLTxCommit)
+	defer func() {
+		span.Finish(t.ctx, err)
+	}()
 
 	return t.parent.Commit()
 }
 
 func (t wrappedTx) Rollback() (err error) {
-	if !t.hasOpExcluded(OpSQLTxRollback) {
-		span := t.GetSpan(t.ctx).NewChild(OpSQLTxRollback)
-		t.setDefaultLabels(span)
-		start := time.Now()
-		defer func() {
-			span.SetError(err)
-			span.Finish()
-			t.Log(t.ctx, OpSQLTxRollback, "err", err, "duration", time.Since(start))
-		}()
-	}
+	span := t.NewChildSpan(t.ctx, OpSQLTxRollback)
+	defer func() {
+		span.Finish(t.ctx, err)
+	}()
 
 	return t.parent.Rollback()
 }
