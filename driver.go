@@ -61,7 +61,8 @@ func (d WrappedDriver) setDefaults() {
 }
 
 type spanFinisherImpl struct {
-	opts
+	Logger
+	omitArgs  bool
 	operation string
 	span      Span
 	query     *string
@@ -79,7 +80,7 @@ func (f *spanFinisherImpl) Finish(ctx context.Context, err error) {
 	}
 
 	if f.query != nil {
-		keyvals = append(keyvals, "query", f.query)
+		keyvals = append(keyvals, "query", *f.query)
 	}
 
 	if !f.omitArgs && f.args != nil {
@@ -96,7 +97,7 @@ func (d WrappedDriver) NewChildSpan(ctx context.Context, operation string) spanF
 		span.SetDBName(d.dbName)
 		span.SetDBUser(d.dbUser)
 		span.SetDBSystem(d.dbSystem)
-		return &spanFinisherImpl{opts: d.opts, operation: operation, span: span, start : time.Now()}
+		return &spanFinisherImpl{Logger: d.Logger, omitArgs: d.omitArgs, operation: operation, span: span, start: time.Now()}
 	}
 	return nullSpanFinisher{}
 }
@@ -118,19 +119,22 @@ func (d WrappedDriver) NewChildSpanWithQuery(ctx context.Context, operation stri
 }
 
 type nullSpanFinisher struct{}
+
 func (f nullSpanFinisher) Finish(context.Context, error) {}
 
 type nullTracer struct{}
+
 func (nullTracer) GetSpan(context.Context) Span { return nullSpan{} }
 
 type nullSpan struct{}
-func (nullSpan) NewChild(string) Span { return nullSpan{} }
-func (nullSpan) SetLabel(k, v string) {}
-func (nullSpan) SetComponent(v string) {}
-func (nullSpan) SetDBName(v string) {}
-func (nullSpan) SetDBUser(v string) {}
-func (nullSpan) SetDBSystem(v string) {}
-func (nullSpan) SetDBStatement(v string) {}
+
+func (nullSpan) NewChild(string) Span        { return nullSpan{} }
+func (nullSpan) SetLabel(k, v string)        {}
+func (nullSpan) SetComponent(v string)       {}
+func (nullSpan) SetDBName(v string)          {}
+func (nullSpan) SetDBUser(v string)          {}
+func (nullSpan) SetDBSystem(v string)        {}
+func (nullSpan) SetDBStatement(v string)     {}
 func (nullSpan) SetDBStatementArgs(v string) {}
-func (nullSpan) Finish() {}
-func (nullSpan) SetError(err error) {}
+func (nullSpan) Finish()                     {}
+func (nullSpan) SetError(err error)          {}
