@@ -35,7 +35,7 @@ func WrapDriver(driver driver.Driver, opts ...Opt) WrappedDriver {
 		opt(&d.opts)
 	}
 
-	d.childSpanFactory = d
+	d.childSpanFactory = childSpanFactoryImpl{opts: d.opts}
 
 	return d
 }
@@ -90,24 +90,28 @@ func (f *spanFinisherImpl) Finish(ctx context.Context, err error) {
 	f.Log(ctx, f.operation, keyvals...)
 }
 
-func (d WrappedDriver) NewChildSpan(ctx context.Context, operation string) spanFinisher {
-	if !d.hasOpExcluded(operation) {
-		span := d.GetSpan(ctx).NewChild(operation)
-		span.SetComponent(d.componentName)
-		span.SetDBName(d.dbName)
-		span.SetDBUser(d.dbUser)
-		span.SetDBSystem(d.dbSystem)
-		return &spanFinisherImpl{Logger: d.Logger, omitArgs: d.omitArgs, operation: operation, span: span, start: time.Now()}
+type childSpanFactoryImpl struct {
+	opts
+}
+
+func (c childSpanFactoryImpl) NewChildSpan(ctx context.Context, operation string) spanFinisher {
+	if !c.hasOpExcluded(operation) {
+		span := c.GetSpan(ctx).NewChild(operation)
+		span.SetComponent(c.componentName)
+		span.SetDBName(c.dbName)
+		span.SetDBUser(c.dbUser)
+		span.SetDBSystem(c.dbSystem)
+		return &spanFinisherImpl{Logger: c.Logger, omitArgs: c.omitArgs, operation: operation, span: span, start: time.Now()}
 	}
 	return nullSpanFinisher{}
 }
 
-func (d WrappedDriver) NewChildSpanWithQuery(ctx context.Context, operation string, query string, args interface{}) spanFinisher {
-	if !d.hasOpExcluded(operation) {
-		finisher := d.NewChildSpan(ctx, operation)
+func (c childSpanFactoryImpl) NewChildSpanWithQuery(ctx context.Context, operation string, query string, args interface{}) spanFinisher {
+	if !c.hasOpExcluded(operation) {
+		finisher := c.NewChildSpan(ctx, operation)
 		f, _ := finisher.(*spanFinisherImpl)
 		f.span.SetDBStatement(query)
-		if !d.omitArgs {
+		if !c.omitArgs {
 			f.span.SetDBStatementArgs(formatArgs(args))
 		}
 
