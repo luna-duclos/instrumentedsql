@@ -50,7 +50,7 @@ func (d WrappedDriver) Open(name string) (driver.Conn, error) {
 	return wrappedConn{opts: d.opts, childSpanFactory: d.childSpanFactory, parent: conn}, nil
 }
 
-func (d WrappedDriver) setDefaults() {
+func (d *WrappedDriver) setDefaults() {
 	d.Logger = nullLogger{}
 	d.Tracer = nullTracer{}
 	d.omitArgs = true
