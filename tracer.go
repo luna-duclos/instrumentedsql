@@ -10,13 +10,17 @@ type Tracer interface {
 // Span is part of the interface needed to be implemented by any tracing implementation we use
 type Span interface {
 	NewChild(string) Span
-	SetLabel(k, v string)
-	SetComponent(v string)
-	SetDBName(v string)
-	SetDBUser(v string)
-	SetDBSystem(v string)
-	SetDBStatement(v string)
-	SetDBStatementArgs(v string)
+	SetLabel(string, string)
+	SetComponent(string)
+	SetDbConnectionString(string)
+	SetDBName(string)
+	SetDBUser(string)
+	SetDBSystem(string)
+	SetDBStatement(string)
+	SetDBStatementArgs(string)
+	SetPeerAddress(string)
+	SetPeerHost(string)
+	SetPeerPort(string)
 	SetError(err error)
 	Finish()
 }

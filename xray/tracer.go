@@ -56,19 +56,16 @@ func (s span) SetLabel(k, v string) {
 	}
 }
 
-func (s span) SetComponent(v string) {}
-
-func (s span) SetDBName(v string) {}
-
-func (s span) SetDBUser(v string) {}
-
-func (s span) SetDBSystem(v string) {}
-
-func (s span) SetDBStatement(v string) {}
-
-func (s span) SetDBStatementArgs(v string) {
-	s.SetLabel("args", v)
-}
+func (s span) SetComponent(v string)        {}
+func (s span) SetDbConnectionString(string) {}
+func (s span) SetDBName(string)             {}
+func (s span) SetDBUser(string)             {}
+func (s span) SetDBSystem(string)           {}
+func (s span) SetDBStatement(string)        {}
+func (s span) SetDBStatementArgs(v string)  { s.SetLabel("args", v) }
+func (s span) SetPeerAddress(string)        {}
+func (s span) SetPeerHost(string)           {}
+func (s span) SetPeerPort(string)           {}
 
 // SetError comply with instrumentedsql.Span
 func (s span) SetError(err error) {

@@ -6,7 +6,6 @@ import (
 )
 
 type wrappedResult struct {
-	opts
 	childSpanFactory
 	ctx    context.Context
 	parent driver.Result

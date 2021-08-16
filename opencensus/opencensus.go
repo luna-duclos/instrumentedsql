@@ -55,6 +55,10 @@ func (s span) SetComponent(v string) {
 	s.SetLabel("component", v)
 }
 
+func (s span) SetDbConnectionString(v string) {
+	s.SetLabel("db.connection_string", v)
+}
+
 func (s span) SetDBName(v string) {
 	s.SetLabel("db.name", v)
 }
@@ -73,6 +77,18 @@ func (s span) SetDBStatement(v string) {
 
 func (s span) SetDBStatementArgs(v string) {
 	s.SetLabel("args", v)
+}
+
+func (s span) SetPeerAddress(v string) {
+	s.SetLabel("net.peer.address", v)
+}
+
+func (s span) SetPeerHost(v string) {
+	s.SetLabel("net.peer.name", v)
+}
+
+func (s span) SetPeerPort(v string) {
+	s.SetLabel("net.peer.port", v)
 }
 
 func (s span) SetError(err error) {

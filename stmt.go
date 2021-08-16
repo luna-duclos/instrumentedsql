@@ -6,7 +6,6 @@ import (
 )
 
 type wrappedStmt struct {
-	opts
 	childSpanFactory
 	ctx    context.Context
 	query  string
@@ -44,7 +43,7 @@ func (s wrappedStmt) Exec(args []driver.Value) (res driver.Result, err error) {
 		return nil, err
 	}
 
-	return wrappedResult{opts: s.opts, childSpanFactory: s.childSpanFactory, ctx: s.ctx, parent: res}, nil
+	return wrappedResult{childSpanFactory: s.childSpanFactory, ctx: s.ctx, parent: res}, nil
 }
 
 func (s wrappedStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
@@ -58,7 +57,7 @@ func (s wrappedStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 		return nil, err
 	}
 
-	return wrappedRows{opts: s.opts, childSpanFactory: s.childSpanFactory, ctx: s.ctx, parent: rows}, nil
+	return wrappedRows{childSpanFactory: s.childSpanFactory, ctx: s.ctx, parent: rows}, nil
 }
 
 func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (res driver.Result, err error) {
@@ -73,7 +72,7 @@ func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) 
 			return nil, err
 		}
 
-		return wrappedResult{opts: s.opts, childSpanFactory: s.childSpanFactory, ctx: ctx, parent: res}, nil
+		return wrappedResult{childSpanFactory: s.childSpanFactory, ctx: ctx, parent: res}, nil
 	}
 
 	// Fallback implementation
@@ -93,7 +92,7 @@ func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) 
 		return nil, err
 	}
 
-	return wrappedResult{opts: s.opts, childSpanFactory: s.childSpanFactory, ctx: ctx, parent: res}, nil
+	return wrappedResult{childSpanFactory: s.childSpanFactory, ctx: ctx, parent: res}, nil
 }
 
 func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (rows driver.Rows, err error) {
@@ -108,7 +107,7 @@ func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue)
 			return nil, err
 		}
 
-		return wrappedRows{opts: s.opts, childSpanFactory: s.childSpanFactory, ctx: ctx, parent: rows}, nil
+		return wrappedRows{childSpanFactory: s.childSpanFactory, ctx: ctx, parent: rows}, nil
 	}
 
 	dargs, err := namedValueToValue(args)
@@ -127,5 +126,5 @@ func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue)
 		return nil, err
 	}
 
-	return wrappedRows{opts: s.opts, childSpanFactory: s.childSpanFactory, ctx: ctx, parent: rows}, nil
+	return wrappedRows{childSpanFactory: s.childSpanFactory, ctx: ctx, parent: rows}, nil
 }

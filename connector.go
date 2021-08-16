@@ -8,7 +8,7 @@ import (
 )
 
 type wrappedConnector struct {
-	opts
+	Logger
 	childSpanFactory
 	parent    driver.Connector
 	driverRef *WrappedDriver
@@ -29,7 +29,7 @@ func (c wrappedConnector) Connect(ctx context.Context) (conn driver.Conn, err er
 		return nil, err
 	}
 
-	return wrappedConn{opts: c.opts, childSpanFactory: c.childSpanFactory, parent: conn}, nil
+	return wrappedConn{Logger: c.Logger, childSpanFactory: c.childSpanFactory, parent: conn}, nil
 }
 
 func (c wrappedConnector) Driver() driver.Driver {

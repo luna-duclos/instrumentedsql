@@ -6,9 +6,6 @@ type opts struct {
 	opsExcluded   map[string]struct{}
 	omitArgs      bool
 	componentName string
-	dbName   string
-	dbSystem string
-	dbUser   string
 }
 
 func (o *opts) hasOpExcluded(op string) bool {
@@ -56,29 +53,5 @@ func WithIncludeArgs() Opt {
 func WithComponentName(componentName string) Opt {
 	return func(o *opts) {
 		o.componentName = componentName
-	}
-}
-
-// WithDBName sets the DB name which is included in logging and tracing
-// Default is "unknown"
-func WithDBName(dbName string) Opt {
-	return func(o *opts) {
-		o.dbName = dbName
-	}
-}
-
-// WithDBUser sets the username used to access the database
-// Default is "unknown"
-func WithDBUser(userName string) Opt {
-	return func(o *opts) {
-		o.dbUser = userName
-	}
-}
-
-// WithDBSystem sets the db system used
-// Default is "unknown"
-func WithDBSystem(dbSystem string) Opt {
-	return func(o *opts) {
-		o.dbSystem = dbSystem
 	}
 }

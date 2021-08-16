@@ -10,7 +10,6 @@ import (
 // Use WrapDriver to create a new WrappedDriver.
 type WrappedDriver struct {
 	opts
-	childSpanFactory
 	parent driver.Driver
 }
 
@@ -28,14 +27,17 @@ var (
 // ___Context() and BeginTx() function calls added in Go 1.8 instead of the older calls which do not
 // accept a context.
 func WrapDriver(driver driver.Driver, opts ...Opt) WrappedDriver {
-	d := WrappedDriver{parent: driver}
-	d.setDefaults()
+	d := WrappedDriver{
+		parent: driver,
+	}
+	d.Logger = nullLogger{}
+	d.Tracer = nullTracer{}
+	d.omitArgs = true
+	d.componentName = "database/sql"
 
 	for _, opt := range opts {
 		opt(&d.opts)
 	}
-
-	d.childSpanFactory = childSpanFactoryImpl{opts: d.opts}
 
 	return d
 }
@@ -47,17 +49,14 @@ func (d WrappedDriver) Open(name string) (driver.Conn, error) {
 		return nil, err
 	}
 
-	return wrappedConn{opts: d.opts, childSpanFactory: d.childSpanFactory, parent: conn}, nil
-}
-
-func (d *WrappedDriver) setDefaults() {
-	d.Logger = nullLogger{}
-	d.Tracer = nullTracer{}
-	d.omitArgs = true
-	d.componentName = "database/sql"
-	d.dbName = "unknown"
-	d.dbUser = "unknown"
-	d.dbSystem = "unknown"
+	return wrappedConn{
+		Logger: d.opts.Logger,
+		childSpanFactory: childSpanFactoryImpl{
+			opts:          d.opts,
+			dbConnDetails: newDBConnDetails(name),
+		},
+		parent: conn,
+	}, nil
 }
 
 type spanFinisherImpl struct {
@@ -92,15 +91,40 @@ func (f *spanFinisherImpl) Finish(ctx context.Context, err error) {
 
 type childSpanFactoryImpl struct {
 	opts
+	dbConnDetails
 }
 
 func (c childSpanFactoryImpl) NewChildSpan(ctx context.Context, operation string) spanFinisher {
 	if !c.hasOpExcluded(operation) {
 		span := c.GetSpan(ctx).NewChild(operation)
 		span.SetComponent(c.componentName)
-		span.SetDBName(c.dbName)
-		span.SetDBUser(c.dbUser)
-		span.SetDBSystem(c.dbSystem)
+
+		if c.address != "" {
+			span.SetPeerAddress(c.address)
+		}
+
+		if c.host != "" {
+			span.SetPeerHost(c.host)
+		}
+
+		if c.port != "" {
+			span.SetPeerPort(c.port)
+		}
+
+		if c.user != "" {
+			span.SetDBUser(c.user)
+		}
+
+		if c.dbSystem != "" {
+			span.SetDBSystem(c.dbSystem)
+		}
+
+		if c.dbName != "" {
+			span.SetDBName(c.dbName)
+		}
+
+		span.SetDbConnectionString(c.rawString)
+
 		return &spanFinisherImpl{Logger: c.Logger, omitArgs: c.omitArgs, operation: operation, span: span, start: time.Now()}
 	}
 	return nullSpanFinisher{}
@@ -132,13 +156,17 @@ func (nullTracer) GetSpan(context.Context) Span { return nullSpan{} }
 
 type nullSpan struct{}
 
-func (nullSpan) NewChild(string) Span        { return nullSpan{} }
-func (nullSpan) SetLabel(k, v string)        {}
-func (nullSpan) SetComponent(v string)       {}
-func (nullSpan) SetDBName(v string)          {}
-func (nullSpan) SetDBUser(v string)          {}
-func (nullSpan) SetDBSystem(v string)        {}
-func (nullSpan) SetDBStatement(v string)     {}
-func (nullSpan) SetDBStatementArgs(v string) {}
-func (nullSpan) Finish()                     {}
-func (nullSpan) SetError(err error)          {}
+func (nullSpan) NewChild(string) Span         { return nullSpan{} }
+func (nullSpan) SetLabel(string, string)      {}
+func (nullSpan) SetComponent(string)          {}
+func (nullSpan) SetDbConnectionString(string) {}
+func (nullSpan) SetDBName(string)             {}
+func (nullSpan) SetDBUser(string)             {}
+func (nullSpan) SetDBSystem(string)           {}
+func (nullSpan) SetDBStatement(string)        {}
+func (nullSpan) SetDBStatementArgs(string)    {}
+func (nullSpan) SetPeerAddress(string)        {}
+func (nullSpan) SetPeerHost(string)           {}
+func (nullSpan) SetPeerPort(string)           {}
+func (nullSpan) Finish()                      {}
+func (nullSpan) SetError(error)               {}

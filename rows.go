@@ -18,7 +18,6 @@ var (
 )
 
 type wrappedRows struct {
-	opts
 	childSpanFactory
 	ctx    context.Context
 	parent driver.Rows

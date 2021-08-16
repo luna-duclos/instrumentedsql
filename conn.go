@@ -7,7 +7,7 @@ import (
 )
 
 type wrappedConn struct {
-	opts
+	Logger
 	childSpanFactory
 	parent driver.Conn
 }
@@ -30,7 +30,7 @@ func (c wrappedConn) Prepare(query string) (driver.Stmt, error) {
 		return nil, err
 	}
 
-	return wrappedStmt{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: context.TODO(), query: query, parent: parent}, nil
+	return wrappedStmt{childSpanFactory: c.childSpanFactory, ctx: context.TODO(), query: query, parent: parent}, nil
 }
 
 func (c wrappedConn) Close() error {
@@ -43,7 +43,7 @@ func (c wrappedConn) Begin() (driver.Tx, error) {
 		return nil, err
 	}
 
-	return wrappedTx{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: context.TODO(), parent: tx}, nil
+	return wrappedTx{childSpanFactory: c.childSpanFactory, ctx: context.TODO(), parent: tx}, nil
 }
 
 func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx driver.Tx, err error) {
@@ -58,7 +58,7 @@ func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx dri
 			return nil, err
 		}
 
-		return wrappedTx{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: ctx, parent: tx}, nil
+		return wrappedTx{childSpanFactory: c.childSpanFactory, ctx: ctx, parent: tx}, nil
 	}
 
 	tx, err = c.parent.Begin()
@@ -66,7 +66,7 @@ func (c wrappedConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx dri
 		return nil, err
 	}
 
-	return wrappedTx{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: ctx, parent: tx}, nil
+	return wrappedTx{childSpanFactory: c.childSpanFactory, ctx: ctx, parent: tx}, nil
 }
 
 func (c wrappedConn) PrepareContext(ctx context.Context, query string) (stmt driver.Stmt, err error) {
@@ -81,7 +81,7 @@ func (c wrappedConn) PrepareContext(ctx context.Context, query string) (stmt dri
 			return nil, err
 		}
 
-		return wrappedStmt{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: ctx, query: query, parent: stmt}, nil
+		return wrappedStmt{childSpanFactory: c.childSpanFactory, ctx: ctx, query: query, parent: stmt}, nil
 	}
 
 	return c.Prepare(query)
@@ -94,7 +94,7 @@ func (c wrappedConn) Exec(query string, args []driver.Value) (driver.Result, err
 			return nil, err
 		}
 
-		return wrappedResult{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: context.TODO(), parent: res}, nil
+		return wrappedResult{childSpanFactory: c.childSpanFactory, ctx: context.TODO(), parent: res}, nil
 	}
 
 	return nil, driver.ErrSkip
@@ -112,7 +112,7 @@ func (c wrappedConn) ExecContext(ctx context.Context, query string, args []drive
 			return nil, err
 		}
 
-		return wrappedResult{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: ctx, parent: res}, nil
+		return wrappedResult{childSpanFactory: c.childSpanFactory, ctx: ctx, parent: res}, nil
 	}
 
 	// Fallback implementation
@@ -151,7 +151,7 @@ func (c wrappedConn) Query(query string, args []driver.Value) (driver.Rows, erro
 			return nil, err
 		}
 
-		return wrappedRows{opts: c.opts, childSpanFactory: c.childSpanFactory, parent: rows}, nil
+		return wrappedRows{childSpanFactory: c.childSpanFactory, parent: rows}, nil
 	}
 
 	return nil, driver.ErrSkip
@@ -176,7 +176,7 @@ func (c wrappedConn) QueryContext(ctx context.Context, query string, args []driv
 			return nil, err
 		}
 
-		return wrappedRows{opts: c.opts, childSpanFactory: c.childSpanFactory, ctx: ctx, parent: rows}, nil
+		return wrappedRows{childSpanFactory: c.childSpanFactory, ctx: ctx, parent: rows}, nil
 	}
 
 	dargs, err := namedValueToValue(args)
