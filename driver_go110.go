@@ -21,11 +21,16 @@ func (d WrappedDriver) OpenConnector(name string) (driver.Connector, error) {
 		conn = dsnConnector{dsn: name, driver: d.parent}
 	}
 
+	var details dbConnDetails
+	if !d.omitDbConnectionTags {
+		details = newDBConnDetails(name)
+	}
+
 	return wrappedConnector{
 		Logger: d.Logger,
 		childSpanFactory: childSpanFactoryImpl{
 			opts:          d.opts,
-			dbConnDetails: newDBConnDetails(name),
+			dbConnDetails: details,
 		},
 		parent:    conn,
 		driverRef: &d,

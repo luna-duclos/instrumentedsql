@@ -3,9 +3,10 @@ package instrumentedsql
 type opts struct {
 	Logger
 	Tracer
-	opsExcluded   map[string]struct{}
-	omitArgs      bool
-	componentName string
+	opsExcluded          map[string]struct{}
+	omitArgs             bool
+	componentName        string
+	omitDbConnectionTags bool
 }
 
 func (o *opts) hasOpExcluded(op string) bool {
@@ -53,5 +54,12 @@ func WithIncludeArgs() Opt {
 func WithComponentName(componentName string) Opt {
 	return func(o *opts) {
 		o.componentName = componentName
+	}
+}
+
+// WithOmitDbConnectionTags will make it so that no information about the DB is set via tags.
+func WithOmitDbConnectionTags() Opt {
+	return func(o *opts) {
+		o.omitDbConnectionTags = true
 	}
 }

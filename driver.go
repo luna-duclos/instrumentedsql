@@ -49,11 +49,16 @@ func (d WrappedDriver) Open(name string) (driver.Conn, error) {
 		return nil, err
 	}
 
+	var details dbConnDetails
+	if !d.omitDbConnectionTags {
+		details = newDBConnDetails(name)
+	}
+
 	return wrappedConn{
 		Logger: d.opts.Logger,
 		childSpanFactory: childSpanFactoryImpl{
 			opts:          d.opts,
-			dbConnDetails: newDBConnDetails(name),
+			dbConnDetails: details,
 		},
 		parent: conn,
 	}, nil
@@ -99,31 +104,33 @@ func (c childSpanFactoryImpl) NewChildSpan(ctx context.Context, operation string
 		span := c.GetSpan(ctx).NewChild(operation)
 		span.SetComponent(c.componentName)
 
-		if c.address != "" {
-			span.SetPeerAddress(c.address)
-		}
+		if !c.omitDbConnectionTags {
+			if c.address != "" {
+				span.SetPeerAddress(c.address)
+			}
 
-		if c.host != "" {
-			span.SetPeerHost(c.host)
-		}
+			if c.host != "" {
+				span.SetPeerHost(c.host)
+			}
 
-		if c.port != "" {
-			span.SetPeerPort(c.port)
-		}
+			if c.port != "" {
+				span.SetPeerPort(c.port)
+			}
 
-		if c.user != "" {
-			span.SetDBUser(c.user)
-		}
+			if c.user != "" {
+				span.SetDBUser(c.user)
+			}
 
-		if c.dbSystem != "" {
-			span.SetDBSystem(c.dbSystem)
-		}
+			if c.dbSystem != "" {
+				span.SetDBSystem(c.dbSystem)
+			}
 
-		if c.dbName != "" {
-			span.SetDBName(c.dbName)
-		}
+			if c.dbName != "" {
+				span.SetDBName(c.dbName)
+			}
 
-		span.SetDbConnectionString(c.rawString)
+			span.SetDbConnectionString(c.rawString)
+		}
 
 		return &spanFinisherImpl{Logger: c.Logger, omitArgs: c.omitArgs, operation: operation, span: span, start: time.Now()}
 	}
