@@ -5,11 +5,11 @@ package instrumentedsql
 import (
 	"context"
 	"database/sql/driver"
-	"time"
 )
 
 type wrappedConnector struct {
-	opts
+	Logger
+	childSpanFactory
 	parent    driver.Connector
 	driverRef *WrappedDriver
 }
@@ -19,23 +19,17 @@ var (
 )
 
 func (c wrappedConnector) Connect(ctx context.Context) (conn driver.Conn, err error) {
-	if !c.hasOpExcluded(OpSQLConnectorConnect) {
-		span := c.GetSpan(ctx).NewChild(OpSQLConnectorConnect)
-		span.SetLabel("component", "database/sql")
-		start := time.Now()
-		defer func() {
-			span.SetError(err)
-			span.Finish()
-			c.Log(ctx, OpSQLConnectorConnect, "err", err, "duration", time.Since(start))
-		}()
-	}
+	span := c.NewChildSpan(ctx, OpSQLConnectorConnect)
+	defer func() {
+		span.Finish(ctx, err)
+	}()
 
 	conn, err = c.parent.Connect(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return wrappedConn{opts: c.driverRef.opts, parent: conn}, nil
+	return wrappedConn{Logger: c.Logger, childSpanFactory: c.childSpanFactory, parent: conn}, nil
 }
 
 func (c wrappedConnector) Driver() driver.Driver {

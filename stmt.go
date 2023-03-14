@@ -3,11 +3,10 @@ package instrumentedsql
 import (
 	"context"
 	"database/sql/driver"
-	"time"
 )
 
 type wrappedStmt struct {
-	opts
+	childSpanFactory
 	ctx    context.Context
 	query  string
 	parent driver.Stmt
@@ -21,16 +20,10 @@ var (
 )
 
 func (s wrappedStmt) Close() (err error) {
-	if !s.hasOpExcluded(OpSQLStmtClose) {
-		span := s.GetSpan(s.ctx).NewChild(OpSQLStmtClose)
-		span.SetLabel("component", "database/sql")
-		start := time.Now()
-		defer func() {
-			span.SetError(err)
-			span.Finish()
-			s.Log(s.ctx, OpSQLStmtClose, "err", err, "duration", time.Since(start))
-		}()
-	}
+	span := s.NewChildSpan(s.ctx, OpSQLStmtClose)
+	defer func() {
+		span.Finish(s.ctx, err)
+	}()
 
 	return s.parent.Close()
 }
@@ -40,68 +33,38 @@ func (s wrappedStmt) NumInput() int {
 }
 
 func (s wrappedStmt) Exec(args []driver.Value) (res driver.Result, err error) {
-	if !s.hasOpExcluded(OpSQLStmtExec) {
-		span := s.GetSpan(s.ctx).NewChild(OpSQLStmtExec)
-		span.SetLabel("component", "database/sql")
-		span.SetLabel("query", s.query)
-		if !s.OmitArgs {
-			span.SetLabel("args", formatArgs(args))
-		}
-		start := time.Now()
-		defer func() {
-			span.SetError(err)
-			span.Finish()
-			logQuery(s.ctx, s.opts, OpSQLStmtExec, s.query, err, args, start)
-		}()
-	}
+	span := s.NewChildSpanWithQuery(s.ctx, OpSQLStmtExec, s.query, args)
+	defer func() {
+		span.Finish(s.ctx, err)
+	}()
 
 	res, err = s.parent.Exec(args)
 	if err != nil {
 		return nil, err
 	}
 
-	return wrappedResult{opts: s.opts, ctx: s.ctx, parent: res}, nil
+	return wrappedResult{childSpanFactory: s.childSpanFactory, ctx: s.ctx, parent: res}, nil
 }
 
 func (s wrappedStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
-	if !s.hasOpExcluded(OpSQLStmtQuery) {
-		span := s.GetSpan(s.ctx).NewChild(OpSQLStmtQuery)
-		span.SetLabel("component", "database/sql")
-		span.SetLabel("query", s.query)
-		if !s.OmitArgs {
-			span.SetLabel("args", formatArgs(args))
-		}
-		start := time.Now()
-		defer func() {
-			span.SetError(err)
-			span.Finish()
-			logQuery(s.ctx, s.opts, OpSQLStmtQuery, s.query, err, args, start)
-		}()
-	}
+	span := s.NewChildSpanWithQuery(s.ctx, OpSQLStmtQuery, s.query, args)
+	defer func() {
+		span.Finish(s.ctx, err)
+	}()
 
 	rows, err = s.parent.Query(args)
 	if err != nil {
 		return nil, err
 	}
 
-	return wrappedRows{opts: s.opts, ctx: s.ctx, parent: rows}, nil
+	return wrappedRows{childSpanFactory: s.childSpanFactory, ctx: s.ctx, parent: rows}, nil
 }
 
 func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (res driver.Result, err error) {
-	if !s.hasOpExcluded(OpSQLStmtExec) {
-		span := s.GetSpan(ctx).NewChild(OpSQLStmtExec)
-		span.SetLabel("component", "database/sql")
-		span.SetLabel("query", s.query)
-		if !s.OmitArgs {
-			span.SetLabel("args", formatArgs(args))
-		}
-		start := time.Now()
-		defer func() {
-			span.SetError(err)
-			span.Finish()
-			logQuery(ctx, s.opts, OpSQLStmtExec, s.query, err, args, start)
-		}()
-	}
+	span := s.NewChildSpanWithQuery(ctx, OpSQLStmtExec, s.query, args)
+	defer func() {
+		span.Finish(ctx, err)
+	}()
 
 	if stmtExecContext, ok := s.parent.(driver.StmtExecContext); ok {
 		res, err := stmtExecContext.ExecContext(ctx, args)
@@ -109,7 +72,7 @@ func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) 
 			return nil, err
 		}
 
-		return wrappedResult{opts: s.opts, ctx: ctx, parent: res}, nil
+		return wrappedResult{childSpanFactory: s.childSpanFactory, ctx: ctx, parent: res}, nil
 	}
 
 	// Fallback implementation
@@ -129,24 +92,14 @@ func (s wrappedStmt) ExecContext(ctx context.Context, args []driver.NamedValue) 
 		return nil, err
 	}
 
-	return wrappedResult{opts: s.opts, ctx: ctx, parent: res}, nil
+	return wrappedResult{childSpanFactory: s.childSpanFactory, ctx: ctx, parent: res}, nil
 }
 
 func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (rows driver.Rows, err error) {
-	if !s.hasOpExcluded(OpSQLStmtQuery) {
-		span := s.GetSpan(ctx).NewChild(OpSQLStmtQuery)
-		span.SetLabel("component", "database/sql")
-		span.SetLabel("query", s.query)
-		if !s.OmitArgs {
-			span.SetLabel("args", formatArgs(args))
-		}
-		start := time.Now()
-		defer func() {
-			span.SetError(err)
-			span.Finish()
-			logQuery(ctx, s.opts, OpSQLStmtQuery, s.query, err, args, start)
-		}()
-	}
+	span := s.NewChildSpanWithQuery(ctx, OpSQLStmtQuery, s.query, args)
+	defer func() {
+		span.Finish(ctx, err)
+	}()
 
 	if stmtQueryContext, ok := s.parent.(driver.StmtQueryContext); ok {
 		rows, err := stmtQueryContext.QueryContext(ctx, args)
@@ -154,7 +107,7 @@ func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue)
 			return nil, err
 		}
 
-		return wrappedRows{opts: s.opts, ctx: ctx, parent: rows}, nil
+		return wrappedRows{childSpanFactory: s.childSpanFactory, ctx: ctx, parent: rows}, nil
 	}
 
 	dargs, err := namedValueToValue(args)
@@ -173,5 +126,5 @@ func (s wrappedStmt) QueryContext(ctx context.Context, args []driver.NamedValue)
 		return nil, err
 	}
 
-	return wrappedRows{opts: s.opts, ctx: ctx, parent: rows}, nil
+	return wrappedRows{childSpanFactory: s.childSpanFactory, ctx: ctx, parent: rows}, nil
 }

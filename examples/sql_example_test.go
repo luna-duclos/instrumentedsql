@@ -20,6 +20,8 @@ func ExampleWrapDriver_justLogging() {
 	sql.Register("instrumented-sqlite", instrumentedsql.WrapDriver(&sqlite3.SQLiteDriver{}, instrumentedsql.WithLogger(logger)))
 	db, err := sql.Open("instrumented-sqlite", "connString")
 
+	conn, err := db.Conn(context.Background())
+
 	// Proceed to handle connection errors and use the database as usual
-	_, _ = db, err
+	_, _, _ = db, conn, err
 }

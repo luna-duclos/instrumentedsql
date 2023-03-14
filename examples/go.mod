@@ -6,3 +6,8 @@ require (
 	github.com/luna-duclos/instrumentedsql v1.1.3
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 )
+
+replace (
+	github.com/luna-duclos/instrumentedsql => ../
+)
+

@@ -9,3 +9,7 @@ require (
 	github.com/luna-duclos/instrumentedsql v1.1.3
 	go.opencensus.io v0.22.1 // indirect
 )
+
+replace (
+	github.com/luna-duclos/instrumentedsql => ../
+)

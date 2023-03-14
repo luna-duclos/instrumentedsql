@@ -3,17 +3,19 @@ package instrumentedsql
 type opts struct {
 	Logger
 	Tracer
-	OpsExcluded map[string]struct{}
-	OmitArgs    bool
+	opsExcluded          map[string]struct{}
+	omitArgs             bool
+	componentName        string
+	omitDbConnectionTags bool
+}
+
+func (o *opts) hasOpExcluded(op string) bool {
+	_, ok := o.opsExcluded[op]
+	return ok
 }
 
 // Opt is a functional option type for the wrapped driver
 type Opt func(*opts)
-
-func (o *opts) hasOpExcluded(op string) bool {
-	_, ok := o.OpsExcluded[op]
-	return ok
-}
 
 // WithLogger sets the logger of the wrapped driver to the provided logger
 func WithLogger(l Logger) Opt {
@@ -25,9 +27,9 @@ func WithLogger(l Logger) Opt {
 // WithOpsExcluded excludes some of OpSQL that are not required
 func WithOpsExcluded(ops ...string) Opt {
 	return func(o *opts) {
-		o.OpsExcluded = make(map[string]struct{})
+		o.opsExcluded = make(map[string]struct{})
 		for _, op := range ops {
-			o.OpsExcluded[op] = struct{}{}
+			o.opsExcluded[op] = struct{}{}
 		}
 	}
 }
@@ -39,17 +41,25 @@ func WithTracer(t Tracer) Opt {
 	}
 }
 
-// WithOmitArgs will make it so that query arguments are omitted from logging and tracing
-func WithOmitArgs() Opt {
+// WithIncludeArgs will make it so that query arguments are included in logging and tracing
+// Default is not to include the args (for security reasons)
+func WithIncludeArgs() Opt {
 	return func(o *opts) {
-		o.OmitArgs = true
+		o.omitArgs = false
 	}
 }
 
-// WithIncludeArgs will make it so that query arguments are included in logging and tracing
-// This is the default, but can be used to override WithOmitArgs
-func WithIncludeArgs() Opt {
+// WithComponentName allows setting the component name which are included in logging and tracing
+// Default is "database/sql"
+func WithComponentName(componentName string) Opt {
 	return func(o *opts) {
-		o.OmitArgs = false
+		o.componentName = componentName
+	}
+}
+
+// WithOmitDbConnectionTags will make it so that no information about the DB is set via tags.
+func WithOmitDbConnectionTags() Opt {
+	return func(o *opts) {
+		o.omitDbConnectionTags = true
 	}
 }

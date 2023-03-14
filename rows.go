@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"io"
-	"time"
 )
 
 // Compile time validation that our types implement the expected interfaces
@@ -19,7 +18,7 @@ var (
 )
 
 type wrappedRows struct {
-	opts
+	childSpanFactory
 	ctx    context.Context
 	parent driver.Rows
 }
@@ -33,21 +32,14 @@ func (r wrappedRows) Close() error {
 }
 
 func (r wrappedRows) Next(dest []driver.Value) (err error) {
-	if !r.hasOpExcluded(OpSQLRowsNext) {
-		span := r.GetSpan(r.ctx).NewChild(OpSQLRowsNext)
-		span.SetLabel("component", "database/sql")
-		defer func() {
-			if err != io.EOF {
-				span.SetError(err)
-			}
-			span.Finish()
-		}()
-
-		start := time.Now()
-		defer func() {
-			r.Log(r.ctx, OpSQLRowsNext, "err", err, "duration", time.Since(start))
-		}()
-	}
+	span := r.NewChildSpan(r.ctx, OpSQLRowsNext)
+	defer func() {
+		if err != io.EOF {
+			span.Finish(r.ctx, err)
+		} else {
+			span.Finish(r.ctx, nil)
+		}
+	}()
 
 	return r.parent.Next(dest)
 }

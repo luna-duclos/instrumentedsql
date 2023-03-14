@@ -1,6 +1,7 @@
 package instrumentedsql
 
 // The possible op values passed to the logger and used for child span names
+type SQLOp string
 const (
 	OpSQLPrepare          = "sql-prepare"
 	OpSQLConnExec         = "sql-conn-exec"
