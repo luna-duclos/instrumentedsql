@@ -2,7 +2,7 @@ package instrumentedsql
 
 import "context"
 
-// Logger is the interface needed to be implemented by any logging implementation we use, see also NewFuncLogger
+// Logger is the interface needed to be implemented by any logging implementation we use, see also FuncLogger.
 type Logger interface {
 	Log(ctx context.Context, msg string, keyvals ...interface{})
 }
